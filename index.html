@@ -1183,7 +1183,7 @@ function renderDashBeats(){
       const free=isFree(l);
       if(free){
         btn.className='btn-beat btn-beat-free';btn.textContent='↓ Download Free';
-        btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+        btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name,this);});
         if(isMobile()){
           const note=document.createElement('div');note.style.cssText='font-size:10px;color:var(--text3);margin-top:2px;';
           note.textContent='⚠️ Desktop only';btn.insertAdjacentElement('afterend',note);
@@ -1193,7 +1193,7 @@ function renderDashBeats(){
         if(existingReq){
           if(existingReq.status==='payment_confirmed'){
             btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download '+l.name;
-            btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+            btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name,this);});
             if(isMobile()){
               const note=document.createElement('div');note.style.cssText='font-size:10px;color:var(--text3);margin-top:2px;';
               note.textContent='⚠️ Desktop only';btn.insertAdjacentElement('afterend',note);
@@ -1207,7 +1207,7 @@ function renderDashBeats(){
           const proFree=isPro&&proPrice===0;
           if(proFree){
             btn.className='btn-beat btn-beat-free';btn.textContent='↓ '+l.name+' — Free (Pro)';
-            btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+            btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name,this);});
             if(isMobile()){
               const note=document.createElement('div');note.style.cssText='font-size:10px;color:var(--text3);margin-top:2px;';
               note.textContent='⚠️ Desktop only';btn.insertAdjacentElement('afterend',note);
@@ -1229,17 +1229,25 @@ function renderDashBeats(){
 }
 
 
-async function downloadBeat(beatId,licIndex,licName){
+async function downloadBeat(beatId,licIndex,licName,btnEl){
   if(!currentUser)return;
   const beat=beats.find(b=>b.id===beatId);
   if(!beat||!beat.file_path){alert('No file available for this beat yet.');return;}
+
+  // find the button that was clicked and show downloading state
+  const btn=btnEl||(event&&event.currentTarget)||null;
+  const originalText=btn?btn.textContent:'';
+  if(btn){btn.textContent='Downloading...';btn.disabled=true;}
+
   const {data,error}=await sb.storage.from('beats').createSignedUrl(beat.file_path,60);
-  if(error){alert('Download failed. Please try again.');return;}
-  // get file extension from path
+  if(error){
+    alert('Download failed. Please try again.');
+    if(btn){btn.textContent=originalText;btn.disabled=false;}
+    return;
+  }
   const ext=beat.file_path.split('.').pop()||'mp3';
   const filename=beat.title+'.'+ext;
   try{
-    // fetch and create blob for proper filename
     const resp=await fetch(data.signedUrl);
     const blob=await resp.blob();
     const blobUrl=URL.createObjectURL(blob);
@@ -1248,9 +1256,10 @@ async function downloadBeat(beatId,licIndex,licName){
     document.body.appendChild(a);a.click();
     document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(blobUrl),5000);
+    if(btn){btn.textContent=originalText;btn.disabled=false;}
   }catch(e){
-    // fallback for browsers that block blob downloads
     window.open(data.signedUrl,'_blank');
+    if(btn){btn.textContent=originalText;btn.disabled=false;}
   }
 }
 
@@ -1308,7 +1317,7 @@ function renderDashLic(){
         const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
         const dlBtn=document.createElement('button');dlBtn.className='btn-beat btn-beat-dl';
         dlBtn.textContent='↓ Download '+r.lic_name;
-        dlBtn.addEventListener('click',function(){downloadBeat(beat.id,0,r.lic_name);});
+        dlBtn.addEventListener('click',function(){downloadBeat(beat.id,0,r.lic_name,this);});
         actions.appendChild(dlBtn);
         if(isMobile()){
           const note=document.createElement('div');
@@ -1944,11 +1953,11 @@ function renderBeatPage(beatId){
       const existingReq=licRequests.find(r=>r.beat_id===b.id&&r.lic_name===l.name);
       if(free){
         btn.className='btn-beat btn-beat-free';btn.textContent='↓ Download Free';
-        btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+        btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name,this);});
       } else if(existingReq){
         if(existingReq.status==='payment_confirmed'){
           btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download '+l.name;
-          btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+          btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name,this);});
         } else {
           btn.className='btn-beat btn-beat-pending';btn.textContent='⏳ '+l.name+' — '+existingReq.status.replace(/_/g,' ');
         }
@@ -1957,7 +1966,7 @@ function renderBeatPage(beatId){
         const proFree=isPro&&proPrice===0;
         if(proFree){
           btn.className='btn-beat btn-beat-free';btn.textContent='↓ '+l.name+' — Free (Pro)';
-          btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+          btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name,this);});
         } else {
           const displayPrice=proPrice||l.price;
           btn.className='btn-beat btn-beat-pay';btn.textContent='💳 '+l.name+' — $'+displayPrice;
