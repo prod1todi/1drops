@@ -1456,7 +1456,7 @@ function renderAdmLic(){
   el.innerHTML=licRequests.map(r=>`
     <div class="req-card">
       <div class="req-top"><div class="icol">
-        <span class="rt">${r.artist_id} <span class="badge b${r.status}">${r.status.replace(/_/g,' ')}</span></span>
+        <span class="rt">${artists.find(a=>a.id===r.artist_id)?.name||r.artist_id} <span class="badge b${r.status}">${r.status.replace(/_/g,' ')}</span></span>
         <span class="rs">"${r.beat_title}" — ${r.lic_name} license ($${r.price}) via ${r.method}</span>
       </div></div>
       <div class="req-actions">
