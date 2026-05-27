@@ -1526,6 +1526,13 @@ function flash(bannerId,msgId,msg){
 }
 function q(id){return document.getElementById(id);}
 
+// ── AUDIO MANAGER — stop all other players when one starts ──
+document.addEventListener('play', function(e){
+  document.querySelectorAll('audio').forEach(a=>{
+    if(a!==e.target){a.pause();}
+  });
+}, true);
+
 // ════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════
