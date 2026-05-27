@@ -1580,6 +1580,60 @@ function flash(bannerId,msgId,msg){
 }
 function q(id){return document.getElementById(id);}
 
+// ════════════════════════════════════════════
+// SESSION RESTORE
+// ════════════════════════════════════════════
+async function restoreSession(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){setLoggedOutNav();return;}
+  const urlParams=new URLSearchParams(window.location.search);
+  const googleAction=urlParams.get('google');
+  if(googleAction){window.history.replaceState({},document.title,window.location.pathname);}
+  let {data:profile,error}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+  if(error){console.error('Profile error:',error.message);return;}
+  if(!profile){
+    const name=session.user.user_metadata?.full_name||session.user.email.split('@')[0];
+    const {data:created,error:createErr}=await sb.from('profiles')
+      .insert({id:session.user.id,name,email:session.user.email,plan:'free',genres:[]})
+      .select().maybeSingle();
+    if(createErr){console.error('Profile create error:',createErr.message);return;}
+    profile=created;
+  }
+  if(profile){
+    currentUser={...profile,email:session.user.email};
+    setLoggedInNav();
+    renderLoggedInHome();
+    if(googleAction){
+      document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+      document.getElementById('page-dashboard').classList.add('active');
+      showDashboard();
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+(async()=>{
+  const {data:dbGenres}=await sb.from('genres').select('name').order('name');
+  if(dbGenres&&dbGenres.length){
+    dbGenres.map(x=>x.name).forEach(g=>{if(!allGenres.includes(g))allGenres.push(g);});
+  }
+  rebuildSuGenres();
+  renderUpLics();
+  await renderHomeBeats();
+  restoreSession();
+  const urlParams=new URLSearchParams(window.location.search);
+  const sharedBeatId=urlParams.get('beat');
+  if(sharedBeatId){
+    await loadBeats();
+    if(currentUser)await loadUserRequests();
+    document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+    document.getElementById('page-beat').classList.add('active');
+    renderBeatPage(sharedBeatId);
+  }
+})();
+
 // ── SHARE ──
 let activeSharePopup=null;
 
@@ -1614,14 +1668,18 @@ function shareBeat(beatId, btnEl){
   wrap.style.position='relative';
   wrap.appendChild(popup);
   activeSharePopup=popup;
-
-  // close on outside click
-  setTimeout(()=>document.addEventListener('click', closeSharePopup, {once:true}), 10);
 }
 
 function closeSharePopup(){
   if(activeSharePopup){activeSharePopup.remove();activeSharePopup=null;}
 }
+
+// Close share popup when clicking anywhere outside it
+document.addEventListener('click',function(e){
+  if(activeSharePopup&&!activeSharePopup.contains(e.target)){
+    closeSharePopup();
+  }
+});
 
 function copyBeatLink(url, beatId){
   if(navigator.clipboard){
