@@ -1599,6 +1599,8 @@ function showPage(p,e){
   if(p==='home'){renderLoggedInHome();renderHomeBeats();}
   if(p==='dashboard'&&currentUser)showDashboard();
   if(p==='admin'&&currentUser&&currentUser.id===ADMIN_ID){updateAdmin();rebuildUpGenres();}
+  // remember current page across reloads
+  try{sessionStorage.setItem('1drops_page',p);}catch(e){}
 }
 
 function goHome(){showPage('home');}
@@ -1659,7 +1661,9 @@ async function restoreSession(){
   rebuildSuGenres();
   renderUpLics();
   await renderHomeBeats();
-  restoreSession();
+  await restoreSession();
+
+  // restore last visited page
   const urlParams=new URLSearchParams(window.location.search);
   const sharedBeatId=urlParams.get('beat');
   if(sharedBeatId){
@@ -1668,7 +1672,27 @@ async function restoreSession(){
     document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
     document.getElementById('page-beat').classList.add('active');
     renderBeatPage(sharedBeatId);
+  } else if(currentUser){
+    try{
+      const savedPage=sessionStorage.getItem('1drops_page');
+      if(savedPage&&document.getElementById('page-'+savedPage)){
+        showPage(savedPage);
+      }
+    }catch(e){}
   }
+
+  // auto-refresh beats every 60 seconds silently
+  setInterval(async function(){
+    const prevCount=beats.length;
+    await loadBeats();
+    // only re-render if beats changed
+    if(beats.length!==prevCount){
+      const homePage=document.getElementById('page-home');
+      const dashPage=document.getElementById('page-dashboard');
+      if(homePage&&homePage.classList.contains('active'))renderHomeBeats();
+      if(dashPage&&dashPage.classList.contains('active'))renderDashBeats();
+    }
+  }, 60000);
 })();
 
 // ── SHARE ──
