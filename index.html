@@ -1259,16 +1259,37 @@ function renderDashLic(){
   const el=q('dash-lic-list');
   if(!currentUser){el.innerHTML='<p class="empty">Not logged in.</p>';return;}
   if(!licRequests.length){el.innerHTML='<p class="empty">No license requests yet. Go to Beats tab to request a license.</p>';return;}
-  el.innerHTML=licRequests.map(r=>`
-    <div class="req-card">
-      <div class="req-top"><div class="icol">
-        <span class="rt">${r.beat_title} <span class="badge b${r.status}">${r.status.replace(/_/g,' ')}</span></span>
-        <span class="rs">${r.lic_name} license — $${r.price} · ${r.method}</span>
-        ${r.status==='payment_confirmed'?`<span class="rs" style="color:var(--green);margin-top:3px;">✓ Payment confirmed — go to Beats tab to download</span>`:''}
-        ${r.status==='pending'?`<span class="rs" style="color:var(--text3);margin-top:3px;">Waiting for Todi to confirm your payment</span>`:''}
-        ${r.status==='rejected'?`<span class="rs" style="color:var(--red);margin-top:3px;">Request declined</span>`:''}
-      </div></div>
-    </div>`).join('');
+  el.innerHTML='';
+  licRequests.forEach(function(r){
+    const card=document.createElement('div');card.className='req-card';
+    const top=document.createElement('div');top.className='req-top';
+    const col=document.createElement('div');col.className='icol';
+    col.innerHTML=
+      '<span class="rt">'+r.beat_title+' <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
+      '<span class="rs">'+r.lic_name+' license — $'+r.price+' · '+r.method+'</span>'+
+      (r.status==='pending'?'<span class="rs" style="color:var(--text3);margin-top:3px;">Waiting for Todi to confirm your payment</span>':'')+
+      (r.status==='rejected'?'<span class="rs" style="color:var(--red);margin-top:3px;">Request declined</span>':'');
+    top.appendChild(col);card.appendChild(top);
+
+    if(r.status==='payment_confirmed'){
+      const confirmed=document.createElement('span');
+      confirmed.className='rs';confirmed.style.cssText='color:var(--green);margin-top:3px;display:block;';
+      confirmed.textContent='✓ Payment confirmed';
+      col.appendChild(confirmed);
+      // find the beat and show download button
+      const beat=beats.find(b=>b.id===r.beat_id);
+      if(beat&&beat.file_path){
+        const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
+        const dlBtn=document.createElement('button');dlBtn.className='btn-beat btn-beat-dl';
+        dlBtn.textContent='↓ Download '+r.lic_name;
+        dlBtn.addEventListener('click',function(){downloadBeat(beat.id,0,r.lic_name);});
+        actions.appendChild(dlBtn);
+        card.appendChild(actions);
+      }
+    }
+
+    el.appendChild(card);
+  });
 }
 
 // ════════════════════════════════════════════
