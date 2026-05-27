@@ -861,6 +861,7 @@ function addEditGenre(){
   const g=raw[0].toUpperCase()+raw.slice(1);
   if(allGenres.map(x=>x.toLowerCase()).includes(g.toLowerCase())){inp.value='';return;}
   allGenres.push(g);editGenresSet.add(g);rebuildEditGenres();inp.value='';
+  saveGenreToDB(g);
 }
 q('edit-custom-genre') && q('edit-custom-genre').addEventListener('keydown',e=>{if(e.key==='Enter')addEditGenre();});
 
@@ -882,15 +883,20 @@ function rebuildUpGenres(){
   const c=q('up-genres');c.innerHTML='';
   allGenres.forEach(g=>{const t=buildGTag(g,c,uploadGenresSet,updateNotifyPrev);if(uploadGenresSet.has(g))t.classList.add('sel');});
 }
+async function saveGenreToDB(g){
+  // only admin saves genres to DB; others just use in session
+  if(!currentUser||currentUser.id!==ADMIN_ID)return;
+  await sb.from('genres').insert({name:g}).select().maybeSingle();
+}
 function addUploadGenre(){
   const inp=q('up-custom-genre');
   const raw=inp.value.trim();if(!raw)return;
   const g=raw[0].toUpperCase()+raw.slice(1);
   if(allGenres.map(x=>x.toLowerCase()).includes(g.toLowerCase())){
-    // genre already exists, just select it
     uploadGenresSet.add(g);rebuildUpGenres();inp.value='';return;
   }
   allGenres.push(g);uploadGenresSet.add(g);rebuildUpGenres();rebuildSuGenres();inp.value='';
+  saveGenreToDB(g);
 }
 function addCustomGenre(){
   const inp=q('su-custom-genre');
@@ -898,6 +904,7 @@ function addCustomGenre(){
   const g=raw[0].toUpperCase()+raw.slice(1);
   if(allGenres.map(x=>x.toLowerCase()).includes(g.toLowerCase())){inp.value='';return;}
   allGenres.push(g);suGenres.add(g);rebuildSuGenres();rebuildUpGenres();inp.value='';
+  saveGenreToDB(g);
 }
 q('su-custom-genre').addEventListener('keydown',e=>{if(e.key==='Enter')addCustomGenre();});
 q('up-custom-genre')&&q('up-custom-genre').addEventListener('keydown',e=>{if(e.key==='Enter')addUploadGenre();});
@@ -1514,10 +1521,19 @@ async function restoreSession(){
   }
 }
 
-rebuildSuGenres();
-renderUpLics();
-renderHomeBeats();
-restoreSession();
+(async()=>{
+  // load genres from DB
+  const {data:dbGenres}=await sb.from('genres').select('name').order('name');
+  if(dbGenres&&dbGenres.length){
+    const names=dbGenres.map(x=>x.name);
+    // merge with defaults, preserving order (defaults first, then extras)
+    names.forEach(g=>{if(!allGenres.includes(g))allGenres.push(g);});
+  }
+  rebuildSuGenres();
+  renderUpLics();
+  renderHomeBeats();
+  restoreSession();
+})();
 </script>
 </body>
 </html>
