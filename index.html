@@ -43,6 +43,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .hero-title span{color:var(--gold);}
 .hero-sub{font-size:15px;color:var(--text2);margin-top:12px;margin-bottom:28px;letter-spacing:0.3px;}
 .hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.beat-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.btn-beat{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);font-size:12px;cursor:pointer;border:none;font-weight:600;font-family:var(--font-body);transition:all 0.15s;white-space:nowrap;}
+.btn-beat-free{background:var(--green-dim);border:0.5px solid var(--green);color:var(--green);}.btn-beat-free:hover{background:#0f2000;}
+.btn-beat-pay{background:var(--gold-dim);border:0.5px solid var(--gold);color:var(--gold);}.btn-beat-pay:hover{background:#201800;}
+.btn-beat-pending{background:var(--bg3);border:0.5px solid var(--border2);color:var(--text3);cursor:default;}
+.btn-beat-locked{background:var(--bg3);border:0.5px solid var(--border);color:var(--text3);cursor:default;opacity:0.6;}
+.btn-beat-dl{background:var(--green-dim);border:0.5px solid var(--green);color:var(--green);}.btn-beat-dl:hover{background:#0f2000;}
+.audio-preview{margin-top:10px;width:100%;display:flex;align-items:center;gap:10px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:8px 12px;}
+.audio-preview audio{flex:1;height:32px;filter:invert(0.1);}
+.audio-preview-label{font-size:11px;color:var(--text3);white-space:nowrap;}
 /* LOGGED IN HERO */
 .home-welcome{padding:32px 0 24px;}
 .home-welcome-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;}
@@ -477,10 +487,17 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
       </div>
       <div class="upload-zone" onclick="triggerUpload()" id="up-zone" style="margin-top:16px;">
         <div class="upload-icon">☁️</div>
-        <div class="upload-label">Click to upload beat file</div>
+        <div class="upload-label">Click to upload full beat file</div>
         <div class="upload-hint">.mp3, .wav</div>
       </div>
       <input type="file" id="up-file-input" accept=".mp3,.wav" style="display:none" onchange="fileSelected()" />
+      <div class="lbl" style="margin-top:14px;">Preview clip <span style="color:var(--text3);font-size:10px;">(optional — short clip artists can play before purchasing)</span></div>
+      <div class="upload-zone" onclick="triggerPreviewUpload()" id="up-preview-zone">
+        <div class="upload-icon">🎧</div>
+        <div class="upload-label">Click to upload preview clip</div>
+        <div class="upload-hint">.mp3, .wav — keep it under 60 seconds</div>
+      </div>
+      <input type="file" id="up-preview-input" accept=".mp3,.wav" style="display:none" onchange="previewFileSelected()" />
       <div class="notify-prev" id="up-notify"><p id="up-notify-text"></p></div>
       <div style="margin-top:16px;">
         <button class="btn btn-gold" onclick="publishBeat()">Drop it &amp; notify artists →</button>
@@ -891,6 +908,11 @@ function fileSelected(){
   const fi=document.getElementById('up-file-input');
   if(fi.files[0])q('up-zone').innerHTML=`<div class="upload-icon">✅</div><div class="upload-label" style="color:var(--green);">${fi.files[0].name}</div>`;
 }
+function triggerPreviewUpload(){document.getElementById('up-preview-input').click();}
+function previewFileSelected(){
+  const fi=document.getElementById('up-preview-input');
+  if(fi.files[0])q('up-preview-zone').innerHTML=`<div class="upload-icon">✅</div><div class="upload-label" style="color:var(--green);">${fi.files[0].name}</div>`;
+}
 function updateNotifyPrev(){
   const el=q('up-notify');
   if(!uploadGenresSet.size){el.style.display='none';return;}
@@ -913,7 +935,23 @@ async function publishBeat(){
     if(upErr){alert('File upload failed: '+upErr.message);return;}
     file_path=path;
   }
-  const beatData={title,bpm:q('up-bpm').value||null,genres:[...uploadGenresSet],licenses:uploadLics.map(l=>({name:l.name,price:parseFloat(l.price)||0})),file_path};
+  let preview_path=null;
+  const pi=document.getElementById('up-preview-input');
+  if(pi&&pi.files[0]){
+    const pfile=pi.files[0];
+    const pext=pfile.name.split('.').pop();
+    const ppath=`previews/${Date.now()}.${pext}`;
+    const {error:prevErr}=await sb.storage.from('beats').upload(ppath,pfile);
+    if(prevErr){alert('Preview upload failed: '+prevErr.message);return;}
+    preview_path=ppath;
+  }
+  // get public preview URL if preview exists
+  let preview_url=null;
+  if(preview_path){
+    const {data:pubData}=sb.storage.from('beats').getPublicUrl(preview_path);
+    preview_url=pubData?.publicUrl||null;
+  }
+  const beatData={title,bpm:q('up-bpm').value||null,genres:[...uploadGenresSet],licenses:uploadLics.map(l=>({name:l.name,price:parseFloat(l.price)||0})),file_path,preview_path,preview_url};
   const {data:newBeat,error}=await sb.from('beats').insert(beatData).select().single();
   if(error){alert('Error saving beat: '+error.message);return;}
   beats.unshift(newBeat);
@@ -923,6 +961,8 @@ async function publishBeat(){
   q('up-zone').innerHTML='<div class="upload-icon">☁️</div><div class="upload-label">Click to upload beat file</div><div class="upload-hint">.mp3, .wav</div>';
   q('up-notify').style.display='none';
   fi.value='';
+  if(pi)pi.value='';
+  q('up-preview-zone').innerHTML='<div class="upload-icon">🎧</div><div class="upload-label">Click to upload preview clip</div><div class="upload-hint">.mp3, .wav — keep it under 60 seconds</div>';
   await notifyArtists(newBeat);
   await updateAdmin();
   renderHomeBeats();
@@ -946,18 +986,25 @@ async function renderHomeBeats(){
   await loadBeats();
   const el=q('home-beats');
   if(!beats.length){el.innerHTML='<p class="empty">No beats uploaded yet — check back soon.</p>';return;}
-  el.innerHTML=beats.map(b=>`
-    <div class="beat-card">
+  el.innerHTML=beats.map(b=>{
+    const previewHtml=b.preview_path?`
+      <div class="audio-preview">
+        <span class="audio-preview-label">🎧 Preview</span>
+        <audio controls preload="none" src="${b.preview_url||''}"></audio>
+      </div>`:'';
+    return `<div class="beat-card">
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
         <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
       </div></div>
-      <div class="chips">${(b.licenses||[]).map(l=>isFree(l)
-        ?`<span class="chip free-chip">↓ ${l.name} — Free</span>`
-        :`<span class="chip locked-chip">🔒 ${l.name} — $${l.price}</span>`
+      ${previewHtml}
+      <div class="beat-actions">${(b.licenses||[]).map(l=>isFree(l)
+        ?`<button class="btn-beat btn-beat-free" ${currentUser?`onclick="downloadBeat('${b.id}','0','${escQ(l.name)}')"`:''}>↓ ${l.name} — Free${!currentUser?' (log in to download)':''}</button>`
+        :`<button class="btn-beat btn-beat-locked">🔒 ${l.name} — $${l.price}</button>`
       ).join('')}</div>
-      ${!currentUser?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Log in to download or request a license</div>':''}
-    </div>`).join('');
+      ${!currentUser?'<div style="margin-top:8px;font-size:12px;color:var(--text3);">Log in to download or request a license</div>':''}
+    </div>`;
+  }).join('');
 }
 
 async function loadUserRequests(){
@@ -974,24 +1021,32 @@ function renderDashBeats(){
   const el=q('dash-beats-list');
   const isPro=currentUser.plan==='paid';
   if(!beats.length){el.innerHTML='<p class="empty">No beats yet — Todi hasn\'t dropped anything yet.</p>';return;}
-  el.innerHTML=beats.map(b=>`
-    <div class="beat-card">
+  el.innerHTML=beats.map(b=>{
+    const previewHtml=b.preview_path?`
+      <div class="audio-preview">
+        <span class="audio-preview-label">🎧 Preview</span>
+        <audio controls preload="none" src="${b.preview_url||''}"></audio>
+      </div>`:'';
+    const licBtns=(b.licenses||[]).map((l,li)=>{
+      const free=isFree(l);
+      if(free)return `<button class="btn-beat btn-beat-free" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download Free</button>`;
+      const existingReq=licRequests.find(r=>r.beat_id===b.id&&r.lic_name===l.name);
+      if(existingReq){
+        if(existingReq.status==='payment_confirmed')return `<button class="btn-beat btn-beat-dl" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download ${l.name}</button>`;
+        return `<button class="btn-beat btn-beat-pending">⏳ ${l.name} — ${existingReq.status.replace(/_/g,' ')}</button>`;
+      }
+      if(!isPro)return `<button class="btn-beat btn-beat-locked">🔒 ${l.name} — $${l.price}</button>`;
+      return `<button class="btn-beat btn-beat-pay" onclick="openLicModal('${b.id}','${li}','${escQ(l.name)}','${l.price}','${escQ(b.title)}')">💳 ${l.name} — $${l.price}</button>`;
+    }).join('');
+    return `<div class="beat-card">
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
         <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
       </div></div>
-      <div class="chips">${(b.licenses||[]).map((l,li)=>{
-        const free=isFree(l);
-        if(free)return `<span class="chip free-chip" style="cursor:pointer;" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ ${l.name} — Free</span>`;
-        if(!isPro)return `<span class="chip locked-chip">🔒 ${l.name} — $${l.price} (Pro only)</span>`;
-        const existingReq=licRequests.find(r=>r.beat_id===b.id&&r.lic_name===l.name);
-        if(existingReq){
-          if(existingReq.status==='payment_confirmed')return `<span class="chip dl-chip" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download ${l.name}</span>`;
-          return `<span class="chip" style="border-color:var(--gold);color:var(--gold);cursor:default;">${l.name} — ${existingReq.status.replace(/_/g,' ')}</span>`;
-        }
-        return `<span class="chip" onclick="openLicModal('${b.id}','${li}','${escQ(l.name)}','${l.price}','${escQ(b.title)}')">${l.name} — $${l.price} · Request</span>`;
-      }).join('')}</div>
-    </div>`).join('');
+      ${previewHtml}
+      <div class="beat-actions">${licBtns}</div>
+    </div>`;
+  }).join('');
 }
 
 async function downloadBeat(beatId,licIndex,licName){
