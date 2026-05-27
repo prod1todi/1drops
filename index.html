@@ -993,8 +993,8 @@ async function renderHomeBeats(){
         <audio controls preload="none" src="${b.preview_url||''}"></audio>
       </div>`:'';
     const note=currentUser
-      ?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Go to <a onclick="showPage('dashboard')" style="color:var(--gold);cursor:pointer;">My Dashboard</a> to purchase or download.</div>'
-      :'<div style="margin-top:10px;font-size:12px;color:var(--text3);"><a onclick="showPage('login')" style="color:var(--gold);cursor:pointer;">Log in</a> or <a onclick="showPage('signup')" style="color:var(--gold);cursor:pointer;">sign up</a> to purchase or download.</div>';
+      ?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Go to <a href="#" onclick="showPage(String.fromCharCode(100,97,115,104,98,111,97,114,100));return false;" style="color:var(--gold);">My Dashboard</a> to purchase or download.</div>'
+      :'<div style="margin-top:10px;font-size:12px;color:var(--text3);"><a href="#" onclick="showPage(String.fromCharCode(108,111,103,105,110));return false;" style="color:var(--gold);">Log in</a> or <a href="#" onclick="showPage(String.fromCharCode(115,105,103,110,117,112));return false;" style="color:var(--gold);">sign up</a> to purchase or download.</div>';
     return `<div class="beat-card">
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
