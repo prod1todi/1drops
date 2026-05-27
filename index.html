@@ -992,17 +992,16 @@ async function renderHomeBeats(){
         <span class="audio-preview-label">🎧 Preview</span>
         <audio controls preload="none" src="${b.preview_url||''}"></audio>
       </div>`:'';
+    const note=currentUser
+      ?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Go to <a onclick="showPage('dashboard')" style="color:var(--gold);cursor:pointer;">My Dashboard</a> to purchase or download.</div>'
+      :'<div style="margin-top:10px;font-size:12px;color:var(--text3);"><a onclick="showPage('login')" style="color:var(--gold);cursor:pointer;">Log in</a> or <a onclick="showPage('signup')" style="color:var(--gold);cursor:pointer;">sign up</a> to purchase or download.</div>';
     return `<div class="beat-card">
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
         <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
       </div></div>
       ${previewHtml}
-      <div class="beat-actions">${(b.licenses||[]).map(l=>isFree(l)
-        ?`<button class="btn-beat btn-beat-free" ${currentUser?`onclick="downloadBeat('${b.id}','0','${escQ(l.name)}')"`:''}>↓ ${l.name} — Free${!currentUser?' (log in to download)':''}</button>`
-        :`<button class="btn-beat btn-beat-locked">🔒 ${l.name} — $${l.price}</button>`
-      ).join('')}</div>
-
+      ${note}
     </div>`;
   }).join('');
 }
