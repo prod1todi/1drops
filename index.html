@@ -49,6 +49,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .btn-share{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;font-size:11px;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-body);font-weight:500;transition:all 0.15s;}
 .btn-share:hover{border-color:var(--border2);color:#ccc;}
 .btn-share.copied{border-color:var(--green);color:var(--green);}
+.share-popup{position:absolute;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:10px;z-index:300;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.4);right:0;top:32px;}
+.share-popup-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);font-size:13px;color:var(--text2);cursor:pointer;transition:background 0.1s;white-space:nowrap;}
+.share-popup-item:hover{background:var(--bg3);color:#fff;}
+.share-popup-item span{font-size:16px;}
+.beat-card-share-wrap{position:relative;display:inline-block;}
 .btn-beat{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);font-size:12px;cursor:pointer;border:none;font-weight:600;font-family:var(--font-body);transition:all 0.15s;white-space:nowrap;}
 .btn-beat-free{background:var(--green-dim);border:0.5px solid var(--green);color:var(--green);}.btn-beat-free:hover{background:#0f2000;}
 .btn-beat-pay{background:var(--gold-dim);border:0.5px solid var(--gold);color:var(--gold);}.btn-beat-pay:hover{background:#201800;}
@@ -277,6 +282,11 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
   </div>
   <div class="frow" id="home-genre-filters"></div>
   <div id="home-beats"><p class="loading">Loading beats...</p></div>
+</div>
+
+<!-- BEAT PAGE (shared link) -->
+<div class="page" id="page-beat">
+  <div id="beat-page-content"></div>
 </div>
 
 <!-- SIGNUP -->
@@ -1020,11 +1030,17 @@ function buildGenreFilters(containerId, currentFilter, onSelect){
   const el=q(containerId);
   if(!el)return;
   const genres=['all',...new Set(beats.flatMap(b=>b.genres||[]))].filter((g,i,a)=>a.indexOf(g)===i);
-  if(genres.length<=2){el.innerHTML='';return;} // only show if there are actual genres beyond 'all'
-  el.innerHTML=genres.map(g=>
-    '<button class="fb'+(currentFilter===g?' active':'')+'" onclick="'+onSelect+'(\''+g+'\',this)">'+
-    (g==='all'?'All':g)+'</button>'
-  ).join('');
+  if(genres.length<=2){el.innerHTML='';return;}
+  el.innerHTML='';
+  genres.forEach(function(g){
+    const btn=document.createElement('button');
+    btn.className='fb'+(currentFilter===g?' active':'');
+    btn.textContent=g==='all'?'All':g;
+    btn.addEventListener('click',function(){
+      window[onSelect](g,btn);
+    });
+    el.appendChild(btn);
+  });
 }
 
 function filterHomeGenre(g,btn){
@@ -1055,27 +1071,56 @@ async function renderHomeBeats(){
 function renderHomeBeatsList(){
   const el=q('home-beats');
   const filtered=getFilteredBeats(homeGenreFilter);
-  if(!filtered.length){el.innerHTML='<p class="empty">'+(homeGenreFilter==='all'?'No beats uploaded yet — check back soon.':'No beats in this genre yet.')+'</p>';return;}
-  el.innerHTML=filtered.map(b=>{
-    const previewHtml=b.preview_path?`
-      <div class="audio-preview">
-        <span class="audio-preview-label">🎧 Preview</span>
-        <audio controls preload="metadata" crossorigin="anonymous" src="${b.preview_url||''}"></audio>
-      </div>`:'';
-    const shareBtn='<button class="btn-share" id="share-'+b.id+'" onclick="shareBeat(\''+b.id+'\')">⬆ Share</button>';
-    const note=currentUser
-      ?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Go to <a href="#" onclick="showPage(String.fromCharCode(100,97,115,104,98,111,97,114,100));return false;" style="color:var(--gold);">My Dashboard</a> to purchase or download.</div>'
-      :'<div style="margin-top:10px;font-size:12px;color:var(--text3);"><a href="#" onclick="showPage(String.fromCharCode(108,111,103,105,110));return false;" style="color:var(--gold);">Log in</a> or <a href="#" onclick="showPage(String.fromCharCode(115,105,103,110,117,112));return false;" style="color:var(--gold);">sign up</a> to purchase or download.</div>';
-    return `<div class="beat-card" id="beat-card-${b.id}">
-      <div class="beat-top"><div>
-        <div class="beat-title">${b.title}</div>
-        <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
-      </div>${shareBtn}</div>
-      ${previewHtml}
-      ${note}
-    </div>`;
-  }).join('');
+  if(!filtered.length){
+    el.innerHTML='<p class="empty">'+(homeGenreFilter==='all'?'No beats uploaded yet — check back soon.':'No beats in this genre yet.')+'</p>';
+    return;
+  }
+  el.innerHTML='';
+  filtered.forEach(function(b){
+    const card=document.createElement('div');
+    card.className='beat-card';
+    card.id='beat-card-'+b.id;
+
+    // header
+    const top=document.createElement('div');top.className='beat-top';
+    const info=document.createElement('div');
+    const titleEl=document.createElement('div');titleEl.className='beat-title';titleEl.textContent=b.title;
+    const metaEl=document.createElement('div');metaEl.className='beat-meta';
+    metaEl.textContent=(b.bpm?b.bpm+' BPM · ':'')+((b.genres||[]).join(', '));
+    info.appendChild(titleEl);info.appendChild(metaEl);
+    const shareBtn=document.createElement('button');
+    shareBtn.className='btn-share';shareBtn.textContent='⬆ Share';
+    shareBtn.addEventListener('click',function(e){e.stopPropagation();shareBeat(b.id,shareBtn);});
+    top.appendChild(info);top.appendChild(shareBtn);
+    card.appendChild(top);
+
+    // preview
+    if(b.preview_path&&b.preview_url){
+      const prev=document.createElement('div');prev.className='audio-preview';
+      const lbl=document.createElement('span');lbl.className='audio-preview-label';lbl.textContent='🎧 Preview';
+      const aud=document.createElement('audio');aud.controls=true;aud.preload='metadata';
+      aud.crossOrigin='anonymous';aud.src=b.preview_url;
+      prev.appendChild(lbl);prev.appendChild(aud);
+      card.appendChild(prev);
+    }
+
+    // note
+    const note=document.createElement('div');
+    note.style.cssText='margin-top:10px;font-size:12px;color:var(--text3);';
+    if(currentUser){
+      note.innerHTML='Go to <a href="#" style="color:var(--gold);">My Dashboard</a> to purchase or download.';
+      note.querySelector('a').addEventListener('click',function(e){e.preventDefault();showPage('dashboard');});
+    } else {
+      note.innerHTML='<a href="#" style="color:var(--gold);">Log in</a> or <a href="#" style="color:var(--gold);">sign up</a> to purchase or download.';
+      const links=note.querySelectorAll('a');
+      links[0].addEventListener('click',function(e){e.preventDefault();showPage('login');});
+      links[1].addEventListener('click',function(e){e.preventDefault();showPage('signup');});
+    }
+    card.appendChild(note);
+    el.appendChild(card);
+  });
 }
+
 
 async function loadUserRequests(){
   if(!currentUser)return;
@@ -1122,7 +1167,7 @@ function renderDashBeats(){
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
         <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
-      </div><button class="btn-share" id="share-${b.id}" onclick="shareBeat('${b.id}')">⬆ Share</button></div>
+      </div><button class="btn-share" id="share-${b.id}" onclick="shareBeat('${b.id}',this)">⬆ Share</button></div>
       ${previewHtml}
       <div class="beat-actions">${licBtns}</div>
     </div>`;
@@ -1535,112 +1580,140 @@ function flash(bannerId,msgId,msg){
 function q(id){return document.getElementById(id);}
 
 // ── SHARE ──
-function shareBeat(beatId){
+let activeSharePopup=null;
+
+function shareBeat(beatId, btnEl){
+  // close any open popup first
+  closeSharePopup();
+  const beat=beats.find(b=>b.id===beatId);
+  if(!beat)return;
   const url=window.location.origin+window.location.pathname+'?beat='+beatId;
+  const encodedUrl=encodeURIComponent(url);
+  const encodedText=encodeURIComponent('"'+beat.title+'" — check this beat out on 1Drops');
+
+  const popup=document.createElement('div');
+  popup.className='share-popup';
+  popup.id='share-popup-'+beatId;
+  const waUrl='https://wa.me/?text='+encodedText+'%20'+encodedUrl;
+  const xUrl='https://x.com/intent/tweet?text='+encodedText+'&url='+encodedUrl;
+
+  function makeItem(icon, label, handler){
+    const d=document.createElement('div');
+    d.className='share-popup-item';
+    d.innerHTML='<span>'+icon+'</span> '+label;
+    d.addEventListener('click', handler);
+    return d;
+  }
+  popup.appendChild(makeItem('🔗','Copy link',function(){copyBeatLink(url,beatId);}));
+  popup.appendChild(makeItem('💬','WhatsApp',function(){window.open(waUrl,'_blank');closeSharePopup();}));
+  popup.appendChild(makeItem('𝕏','X / Twitter',function(){window.open(xUrl,'_blank');closeSharePopup();}));
+
+  // wrap the button in a relative container and append popup
+  const wrap=btnEl.closest('.beat-card-share-wrap')||btnEl.parentElement;
+  wrap.style.position='relative';
+  wrap.appendChild(popup);
+  activeSharePopup=popup;
+
+  // close on outside click
+  setTimeout(()=>document.addEventListener('click', closeSharePopup, {once:true}), 10);
+}
+
+function closeSharePopup(){
+  if(activeSharePopup){activeSharePopup.remove();activeSharePopup=null;}
+}
+
+function copyBeatLink(url, beatId){
   if(navigator.clipboard){
-    navigator.clipboard.writeText(url).then(()=>flashShareBtn(beatId));
+    navigator.clipboard.writeText(url).then(()=>{
+      closeSharePopup();
+      const btns=document.querySelectorAll('#share-'+beatId);
+      btns.forEach(btn=>{btn.textContent='✓ Copied';btn.classList.add('copied');setTimeout(()=>{btn.textContent='⬆ Share';btn.classList.remove('copied');},2000);});
+    });
   } else {
-    // fallback for older browsers
-    const ta=document.createElement('textarea');
-    ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
-    document.body.appendChild(ta);ta.focus();ta.select();
-    document.execCommand('copy');document.body.removeChild(ta);
-    flashShareBtn(beatId);
-  }
-}
-function flashShareBtn(beatId){
-  const btns=document.querySelectorAll('#share-'+beatId);
-  btns.forEach(btn=>{
-    btn.textContent='✓ Copied';btn.classList.add('copied');
-    setTimeout(()=>{btn.textContent='⬆ Share';btn.classList.remove('copied');},2000);
-  });
-}
-function highlightBeat(beatId){
-  setTimeout(()=>{
-    const card=document.getElementById('beat-card-'+beatId);
-    if(!card)return;
-    card.classList.add('highlighted');
-    card.scrollIntoView({behavior:'smooth',block:'center'});
-    // pulse the audio player if present
-    const audio=card.querySelector('audio');
-    if(audio){
-      const wrap=card.querySelector('.audio-preview');
-      if(wrap){wrap.style.border='0.5px solid var(--gold)';setTimeout(()=>{wrap.style.border='';},3000);}
-    }
-  },600); // wait for beats to render
-}
-
-// ── AUDIO MANAGER — stop all other players when one starts ──
-document.addEventListener('play', function(e){
-  document.querySelectorAll('audio').forEach(a=>{
-    if(a!==e.target){a.pause();}
-  });
-}, true);
-
-// ════════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════════
-async function restoreSession(){
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){setLoggedOutNav();return;}
-
-  // check if this is a Google OAuth redirect
-  const params=new URLSearchParams(window.location.search);
-  const googleAction=params.get('google'); // 'login' or 'signup'
-  if(googleAction){
-    // clean up URL
-    window.history.replaceState({},document.title,window.location.pathname);
-  }
-
-  let {data:profile,error}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
-  if(error){console.error('Profile error:',error.message);return;}
-
-  // auto-create profile for new Google users
-  if(!profile){
-    const name=session.user.user_metadata?.full_name||session.user.email.split('@')[0];
-    const {data:created,error:createErr}=await sb.from('profiles')
-      .insert({id:session.user.id,name,email:session.user.email,plan:'free',genres:[]})
-      .select().maybeSingle();
-    if(createErr){console.error('Profile create error:',createErr.message);return;}
-    profile=created;
-  }
-
-  if(profile){
-    currentUser={...profile,email:session.user.email};
-    setLoggedInNav();
-    renderLoggedInHome();
-    // after Google OAuth redirect, go straight to dashboard
-    if(googleAction){
-      document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-      document.getElementById('page-dashboard').classList.add('active');
-      showDashboard();
-    }
+    const ta=document.createElement('textarea');ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    closeSharePopup();
   }
 }
 
-(async()=>{
-  // load genres from DB
-  const {data:dbGenres}=await sb.from('genres').select('name').order('name');
-  if(dbGenres&&dbGenres.length){
-    const names=dbGenres.map(x=>x.name);
-    names.forEach(g=>{if(!allGenres.includes(g))allGenres.push(g);});
+function renderBeatPage(beatId){
+  const b=beats.find(x=>x.id===beatId);
+  const el=q('beat-page-content');
+  if(!b){el.innerHTML='<p class="empty" style="padding:40px 0;">Beat not found.</p>';return;}
+  const isPro=currentUser&&(currentUser.plan==='paid'||currentUser.id===ADMIN_ID);
+  const PRO_PRICES={Basic:0,Premium:100,Exclusive:500};
+
+  el.innerHTML='';
+
+  // header
+  const header=document.createElement('div');
+  header.style.cssText='padding:32px 0 16px;';
+  const titleEl=document.createElement('div');
+  titleEl.style.cssText='font-family:var(--font-display);font-size:42px;letter-spacing:1px;color:#fff;line-height:1.1;';
+  titleEl.textContent=b.title;
+  const metaEl=document.createElement('div');
+  metaEl.style.cssText='font-size:13px;color:var(--text3);margin-top:6px;';
+  metaEl.textContent=(b.bpm?b.bpm+' BPM · ':'')+((b.genres||[]).join(', '));
+  header.appendChild(titleEl);header.appendChild(metaEl);
+  el.appendChild(header);
+
+  // preview
+  if(b.preview_path&&b.preview_url){
+    const prev=document.createElement('div');prev.className='audio-preview';prev.style.margin='16px 0';
+    const lbl=document.createElement('span');lbl.className='audio-preview-label';lbl.textContent='🎧 Preview';
+    const aud=document.createElement('audio');aud.controls=true;aud.preload='metadata';
+    aud.crossOrigin='anonymous';aud.src=b.preview_url;
+    prev.appendChild(lbl);prev.appendChild(aud);
+    el.appendChild(prev);
   }
-  rebuildSuGenres();
-  renderUpLics();
-  await renderHomeBeats();
-  restoreSession();
-  // handle shared beat link
-  const urlParams=new URLSearchParams(window.location.search);
-  const sharedBeatId=urlParams.get('beat');
-  if(sharedBeatId){
-    // make sure we're on home page
-    document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-    document.getElementById('page-home').classList.add('active');
-    highlightBeat(sharedBeatId);
+
+  // license buttons
+  const actionsEl=document.createElement('div');actionsEl.className='beat-actions';actionsEl.style.marginTop='16px';
+  if(currentUser){
+    (b.licenses||[]).forEach(function(l,li){
+      const btn=document.createElement('button');
+      const free=isFree(l);
+      const existingReq=licRequests.find(r=>r.beat_id===b.id&&r.lic_name===l.name);
+      if(free){
+        btn.className='btn-beat btn-beat-free';btn.textContent='↓ Download Free';
+        btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+      } else if(existingReq){
+        if(existingReq.status==='payment_confirmed'){
+          btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download '+l.name;
+          btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+        } else {
+          btn.className='btn-beat btn-beat-pending';btn.textContent='⏳ '+l.name+' — '+existingReq.status.replace(/_/g,' ');
+        }
+      } else {
+        const proPrice=isPro?(PRO_PRICES[l.name]!==undefined?PRO_PRICES[l.name]:null):null;
+        const proFree=isPro&&proPrice===0;
+        if(proFree){
+          btn.className='btn-beat btn-beat-free';btn.textContent='↓ '+l.name+' — Free (Pro)';
+          btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+        } else {
+          const displayPrice=proPrice||l.price;
+          btn.className='btn-beat btn-beat-pay';btn.textContent='💳 '+l.name+' — $'+displayPrice;
+          btn.addEventListener('click',function(){openLicModal(b.id,li,l.name,displayPrice,b.title);});
+        }
+      }
+      actionsEl.appendChild(btn);
+    });
+  } else {
+    const note=document.createElement('div');
+    note.style.cssText='margin-top:16px;font-size:13px;color:var(--text3);';
+    note.innerHTML='<a href="#" style="color:var(--gold);">Log in</a> or <a href="#" style="color:var(--gold);">sign up</a> to purchase or download.';
+    const links=note.querySelectorAll('a');
+    links[0].addEventListener('click',function(e){e.preventDefault();showPage('login');});
+    links[1].addEventListener('click',function(e){e.preventDefault();showPage('signup');});
+    el.appendChild(note);
   }
-})();
-</script>
-</body>
-</html>
+  el.appendChild(actionsEl);
+
+  // footer
+  const footer=document.createElement('div');
+  footer.style.cssText='margin-top:24px;padding-top:16px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text3);';
+  footer.innerHTML='prod. Todi &middot; <a href="/" style="color:var(--gold);">Back to 1Drops</a>';
+  el.appendChild(footer);
+}
+
+
