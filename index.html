@@ -455,6 +455,7 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
   </div>
   <div class="itabs">
     <button class="itab active" onclick="showITab('adm-artists',event)">Artists</button>
+    <button class="itab" onclick="showITab('adm-beats',event)">Beats</button>
     <button class="itab" onclick="showITab('adm-upload',event)">Upload beat</button>
     <button class="itab" onclick="showITab('adm-lic',event)">License requests</button>
     <button class="itab" onclick="showITab('adm-custom',event)">Custom beats</button>
@@ -462,6 +463,9 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
   <div class="ipage active" id="ipage-adm-artists">
     <div class="frow" id="adm-filters"><button class="fb active" onclick="filterA('all',this)">All</button></div>
     <div id="adm-artist-list"><p class="empty">No artists yet.</p></div>
+  </div>
+  <div class="ipage" id="ipage-adm-beats">
+    <div id="adm-beats-list"><p class="empty">No beats yet.</p></div>
   </div>
   <div class="ipage" id="ipage-adm-upload">
     <div class="card">
@@ -536,20 +540,32 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
 <!-- LICENSE REQUEST MODAL -->
 <div class="modal-overlay" id="lic-modal">
   <div class="modal">
-    <div class="modal-title" id="modal-title">Request license</div>
+    <div class="modal-title" id="modal-title">Purchase license</div>
     <div class="modal-sub" id="modal-sub"></div>
-    <div class="lbl">Payment method</div>
-    <div class="payment-opts" id="modal-pay-opts">
-      <span class="popt sel" onclick="selPay(this,'PayPal')">PayPal</span>
-      <span class="popt" onclick="selPay(this,'Bank transfer')">Bank transfer</span>
-      <span class="popt" onclick="selPay(this,'Other')">Other</span>
-    </div>
-    <div class="info-box info-gold" style="margin-top:14px;">
-      <p>Todi will confirm your payment and unlock the download. You'll see the status update in your dashboard.</p>
+    <div id="modal-paypal-btn" style="margin:16px 0;"></div>
+    <div class="info-box info-gold">
+      <p>Pay via PayPal and Todi will confirm receipt. Your download unlocks automatically once confirmed. Status updates in your dashboard.</p>
     </div>
     <div class="modal-btns">
       <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-gold" onclick="confirmLicRequest()">Send request →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT BEAT MODAL -->
+<div class="modal-overlay" id="edit-beat-modal">
+  <div class="modal">
+    <div class="modal-title">Edit beat</div>
+    <div class="lbl">Title</div>
+    <input class="inp" id="eb-title" type="text" />
+    <div class="lbl">BPM <span style="color:var(--text3);font-size:10px;">(optional)</span></div>
+    <input class="inp" id="eb-bpm" type="number" style="width:110px;" />
+    <div class="lbl">Licenses</div>
+    <div id="eb-lic-list"></div>
+    <div class="modal-btns">
+      <button class="btn btn-red btn-sm" id="eb-delete-btn">Delete beat</button>
+      <button class="btn btn-outline" onclick="closeEditBeat()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveEditBeat()">Save changes</button>
     </div>
   </div>
 </div>
@@ -990,7 +1006,7 @@ async function renderHomeBeats(){
     const previewHtml=b.preview_path?`
       <div class="audio-preview">
         <span class="audio-preview-label">🎧 Preview</span>
-        <audio controls preload="none" src="${b.preview_url||''}"></audio>
+        <audio controls preload="metadata" crossorigin="anonymous" src="${b.preview_url||''}"></audio>
       </div>`:'';
     const note=currentUser
       ?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Go to <a href="#" onclick="showPage(String.fromCharCode(100,97,115,104,98,111,97,114,100));return false;" style="color:var(--gold);">My Dashboard</a> to purchase or download.</div>'
@@ -1024,7 +1040,7 @@ function renderDashBeats(){
     const previewHtml=b.preview_path?`
       <div class="audio-preview">
         <span class="audio-preview-label">🎧 Preview</span>
-        <audio controls preload="none" src="${b.preview_url||''}"></audio>
+        <audio controls preload="metadata" crossorigin="anonymous" src="${b.preview_url||''}"></audio>
       </div>`:'';
     const PRO_PRICES={Basic:25,Premium:100,Exclusive:500};
     const licBtns=(b.licenses||[]).map((l,li)=>{
@@ -1068,28 +1084,25 @@ function escQ(s){return String(s).replace(/'/g,"\\'");}
 // LICENSE REQUEST MODAL
 // ════════════════════════════════════════════
 function openLicModal(beatId,licIndex,licName,price,beatTitle){
-  modalContext={beatId,licIndex,licName,price,beatTitle};modalPayMethod='PayPal';
-  q('modal-title').textContent=`Request: ${licName} license`;
-  q('modal-sub').textContent=`"${beatTitle}" — $${price}\nChoose how you'll pay and Todi will confirm receipt.`;
-  document.querySelectorAll('.popt').forEach(p=>p.classList.remove('sel'));
-  document.querySelector('.popt').classList.add('sel');
+  modalContext={beatId,licIndex,licName,price,beatTitle};
+  q('modal-title').textContent=licName+' License — $'+price;
+  q('modal-sub').textContent='"'+beatTitle+'" — Pay $'+price+' via PayPal. Todi confirms receipt and your download unlocks.';
+  // Build PayPal.me link button
+  q('modal-paypal-btn').innerHTML='<a href="https://paypal.me/oluwatodimu0/'+price+'" target="_blank" rel="noopener" onclick="confirmLicRequest()" style="text-decoration:none;"><button class="btn btn-gold" style="width:100%;justify-content:center;">Pay $'+price+' via PayPal →</button></a>';
   q('lic-modal').classList.add('open');
 }
 function closeModal(){q('lic-modal').classList.remove('open');modalContext=null;}
-function selPay(el,method){
-  modalPayMethod=method;
-  document.querySelectorAll('.popt').forEach(p=>p.classList.remove('sel'));
-  el.classList.add('sel');
-}
 async function confirmLicRequest(){
-  if(!modalContext||!currentUser){closeModal();showPage('login');return;}
+  if(!modalContext||!currentUser)return;
   const {beatId,licName,price,beatTitle}=modalContext;
-  const r={artist_id:currentUser.id,beat_id:beatId,beat_title:beatTitle,lic_name:licName,price:parseFloat(price),method:modalPayMethod,status:'pending'};
+  // check not already requested
+  if(licRequests.find(r=>r.beat_id===beatId&&r.lic_name===licName))return;
+  const r={artist_id:currentUser.id,beat_id:beatId,beat_title:beatTitle,lic_name:licName,price:parseFloat(price),method:'PayPal',status:'pending'};
   const {error}=await sb.from('license_requests').insert(r);
-  if(error){alert('Error submitting request. Please try again.');return;}
+  if(error){console.warn('License request error:',error.message);return;}
   licRequests.push(r);
-  closeModal();renderDashBeats();renderDashLic();
-  flash('su-banner','su-msg','License request sent! Todi will confirm your payment.');
+  renderDashBeats();renderDashLic();
+  flash('su-banner','su-msg','Payment sent! Todi will confirm and your download will unlock.');
 }
 function renderDashLic(){
   const el=q('dash-lic-list');
@@ -1237,6 +1250,89 @@ async function setArtistPlan(id,plan){
 }
 
 // ════════════════════════════════════════════
+// ADMIN BEATS
+// ════════════════════════════════════════════
+function renderAdmBeats(){
+  const el=q('adm-beats-list');
+  if(!beats.length){el.innerHTML='<p class="empty">No beats yet.</p>';return;}
+  el.innerHTML=beats.map(b=>`
+    <div class="row">
+      <div class="icol">
+        <span class="rt">${b.title} ${b.bpm?'<span style="font-size:11px;color:var(--text3);">'+b.bpm+' BPM</span>':''}</span>
+        <span class="rs">${(b.genres||[]).join(', ')}</span>
+        <div class="tags" style="margin-top:4px;">${(b.licenses||[]).map(l=>'<span class="mtag">'+l.name+' $'+l.price+'</span>').join('')}</div>
+      </div>
+      <button class="btn btn-outline btn-xs" style="flex-shrink:0;margin-left:10px;" onclick="openEditBeat('${b.id}')">Edit</button>
+    </div>`).join('');
+}
+
+let editBeatId=null;
+let editBeatLics=[];
+
+function openEditBeat(id){
+  const b=beats.find(x=>x.id===id);
+  if(!b)return;
+  editBeatId=id;
+  editBeatLics=JSON.parse(JSON.stringify(b.licenses||[]));
+  q('eb-title').value=b.title;
+  q('eb-bpm').value=b.bpm||'';
+  renderEditLics();
+  q('eb-delete-btn').onclick=()=>deleteBeat(id);
+  q('edit-beat-modal').classList.add('open');
+}
+
+function closeEditBeat(){
+  q('edit-beat-modal').classList.remove('open');
+  editBeatId=null;editBeatLics=[];
+}
+
+function renderEditLics(){
+  const el=q('eb-lic-list');
+  let html='<div class="lic-list">';
+  editBeatLics.forEach(function(l,i){
+    html+='<div class="lic-item">'
+      +'<input class="inp lic-name" value="'+l.name+'" onchange="editBeatLics['+i+'].name=this.value" type="text" />'
+      +'<span style="font-size:12px;color:var(--text3);">$</span>'
+      +'<input class="inp lic-price" value="'+l.price+'" onchange="editBeatLics['+i+'].price=parseFloat(this.value)||0" placeholder="0" type="number" />'
+      +'<button class="xl-btn" onclick="editBeatLics.splice('+i+',1);renderEditLics();">×</button>'
+      +'</div>';
+  });
+  html+='</div><button class="btn btn-outline btn-xs" style="margin-top:8px;" onclick="editBeatLics.push({name:&quot;New&quot;,price:0});renderEditLics();">+ Add license</button>';
+  el.innerHTML=html;
+}
+
+async function saveEditBeat(){
+  if(!editBeatId)return;
+  const title=q('eb-title').value.trim();
+  const bpm=q('eb-bpm').value||null;
+  if(!title){alert('Title cannot be empty.');return;}
+  const {error}=await sb.from('beats').update({title,bpm,licenses:editBeatLics}).eq('id',editBeatId);
+  if(error){alert('Error saving: '+error.message);return;}
+  const b=beats.find(x=>x.id===editBeatId);
+  if(b){b.title=title;b.bpm=bpm;b.licenses=editBeatLics;}
+  closeEditBeat();
+  renderAdmBeats();
+  renderHomeBeats();
+  flash('up-banner','up-msg','Beat updated successfully.');
+}
+
+async function deleteBeat(id){
+  if(!confirm('Delete this beat? This cannot be undone.'))return;
+  const b=beats.find(x=>x.id===id);
+  if(b){
+    if(b.file_path)await sb.storage.from('beats').remove([b.file_path]);
+    if(b.preview_path)await sb.storage.from('beats').remove([b.preview_path]);
+  }
+  const {error}=await sb.from('beats').delete().eq('id',id);
+  if(error){alert('Error deleting beat: '+error.message);return;}
+  beats=beats.filter(x=>x.id!==id);
+  closeEditBeat();
+  renderAdmBeats();
+  renderHomeBeats();
+  await updateAdmin();
+}
+
+// ════════════════════════════════════════════
 // ADMIN
 // ════════════════════════════════════════════
 async function updateAdmin(){
@@ -1259,7 +1355,7 @@ async function updateAdmin(){
   const frow=q('adm-filters');
   frow.innerHTML='<button class="fb active" onclick="filterA(\'all\',this)">All</button>';
   usedG.forEach(g=>{const b=document.createElement('button');b.className='fb';b.textContent=g;b.onclick=function(){filterA(g,this);};frow.appendChild(b);});
-  renderArtistList('all');renderAdmLic();renderAdmCustom();
+  renderArtistList('all');renderAdmBeats();renderAdmLic();renderAdmCustom();
 }
 function filterA(g,btn){
   document.querySelectorAll('#adm-filters .fb').forEach(b=>b.classList.remove('active'));
