@@ -1127,9 +1127,11 @@ async function downloadBeat(beatId,licIndex,licName){
   if(!currentUser)return;
   const beat=beats.find(b=>b.id===beatId);
   if(!beat||!beat.file_path){alert('No file available for this beat yet.');return;}
+  // open window immediately (synchronous) so mobile browsers allow it
+  const win=window.open('','_blank');
   const {data,error}=await sb.storage.from('beats').createSignedUrl(beat.file_path,60);
-  if(error){alert('Download failed. Please try again.');return;}
-  window.open(data.signedUrl,'_blank');
+  if(error){if(win)win.close();alert('Download failed. Please try again.');return;}
+  if(win){win.location.href=data.signedUrl;}else{window.location.href=data.signedUrl;}
 }
 
 function isFree(l){return parseFloat(l.price)===0||l.price==='0'||l.price===''||l.price===undefined||l.price===null;}
