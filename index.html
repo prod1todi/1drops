@@ -267,7 +267,10 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
       </div>
     </div>
   </div>
-  <div class="section-title">Latest drops</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+    <div class="section-title" style="margin-bottom:0;">Latest drops</div>
+  </div>
+  <div class="frow" id="home-genre-filters"></div>
   <div id="home-beats"><p class="loading">Loading beats...</p></div>
 </div>
 
@@ -362,6 +365,7 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
     <button class="itab" onclick="showITab('d-account',event)">Account</button>
   </div>
   <div class="ipage active" id="ipage-d-beats">
+    <div class="frow" id="dash-genre-filters" style="margin-bottom:12px;"></div>
     <div id="dash-beats-list"><p class="empty">No beats yet.</p></div>
   </div>
   <div class="ipage" id="ipage-d-licenses">
@@ -620,6 +624,8 @@ let selectedPlan='free';
 let currentUser=null;
 let modalContext=null;
 let modalPayMethod='PayPal';
+let homeGenreFilter='all';
+let dashGenreFilter='all';
 
 // ════════════════════════════════════════════
 // AUTH
@@ -1005,11 +1011,47 @@ async function loadBeats(){
   beats=data||[];
 }
 
+function buildGenreFilters(containerId, currentFilter, onSelect){
+  const el=q(containerId);
+  if(!el)return;
+  const genres=['all',...new Set(beats.flatMap(b=>b.genres||[]))].filter((g,i,a)=>a.indexOf(g)===i);
+  if(genres.length<=2){el.innerHTML='';return;} // only show if there are actual genres beyond 'all'
+  el.innerHTML=genres.map(g=>
+    '<button class="fb'+(currentFilter===g?' active':'')+'" onclick="'+onSelect+'(\''+g+'\',this)">'+
+    (g==='all'?'All':g)+'</button>'
+  ).join('');
+}
+
+function filterHomeGenre(g,btn){
+  homeGenreFilter=g;
+  document.querySelectorAll('#home-genre-filters .fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHomeBeatsList();
+}
+
+function filterDashGenre(g,btn){
+  dashGenreFilter=g;
+  document.querySelectorAll('#dash-genre-filters .fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDashBeats();
+}
+
+function getFilteredBeats(filter){
+  if(filter==='all')return beats;
+  return beats.filter(b=>(b.genres||[]).includes(filter));
+}
+
 async function renderHomeBeats(){
   await loadBeats();
+  buildGenreFilters('home-genre-filters', homeGenreFilter, 'filterHomeGenre');
+  renderHomeBeatsList();
+}
+
+function renderHomeBeatsList(){
   const el=q('home-beats');
-  if(!beats.length){el.innerHTML='<p class="empty">No beats uploaded yet — check back soon.</p>';return;}
-  el.innerHTML=beats.map(b=>{
+  const filtered=getFilteredBeats(homeGenreFilter);
+  if(!filtered.length){el.innerHTML='<p class="empty">'+(homeGenreFilter==='all'?'No beats uploaded yet — check back soon.':'No beats in this genre yet.')+'</p>';return;}
+  el.innerHTML=filtered.map(b=>{
     const previewHtml=b.preview_path?`
       <div class="audio-preview">
         <span class="audio-preview-label">🎧 Preview</span>
@@ -1042,8 +1084,10 @@ function renderDashBeats(){
   if(!currentUser)return;
   const el=q('dash-beats-list');
   const isPro=currentUser.plan==='paid'||currentUser.id===ADMIN_ID;
-  if(!beats.length){el.innerHTML='<p class="empty">No beats yet — Todi has not dropped anything yet.</p>';return;}
-  el.innerHTML=beats.map(b=>{
+  buildGenreFilters('dash-genre-filters', dashGenreFilter, 'filterDashGenre');
+  const filtered=getFilteredBeats(dashGenreFilter);
+  if(!filtered.length){el.innerHTML='<p class="empty">'+(dashGenreFilter==='all'?'No beats yet — Todi has not dropped anything yet.':'No beats in this genre yet.')+'</p>';return;}
+  el.innerHTML=filtered.map(b=>{
     const previewHtml=b.preview_path?`
       <div class="audio-preview">
         <span class="audio-preview-label">🎧 Preview</span>
