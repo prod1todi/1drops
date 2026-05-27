@@ -1135,44 +1135,81 @@ function renderDashBeats(){
   if(!currentUser)return;
   const el=q('dash-beats-list');
   const isPro=currentUser.plan==='paid'||currentUser.id===ADMIN_ID;
+  const PRO_PRICES={Basic:0,Premium:100,Exclusive:500};
   buildGenreFilters('dash-genre-filters', dashGenreFilter, 'filterDashGenre');
   const filtered=getFilteredBeats(dashGenreFilter);
-  if(!filtered.length){el.innerHTML='<p class="empty">'+(dashGenreFilter==='all'?'No beats yet — Todi has not dropped anything yet.':'No beats in this genre yet.')+'</p>';return;}
-  el.innerHTML=filtered.map(b=>{
-    const previewHtml=b.preview_path?`
-      <div class="audio-preview">
-        <span class="audio-preview-label">🎧 Preview</span>
-        <audio controls preload="metadata" crossorigin="anonymous" src="${b.preview_url||''}"></audio>
-      </div>`:'';
-    const PRO_PRICES={Basic:0,Premium:100,Exclusive:500};
-    const licBtns=(b.licenses||[]).map((l,li)=>{
+  if(!filtered.length){
+    el.innerHTML='<p class="empty">'+(dashGenreFilter==='all'?'No beats yet — Todi has not dropped anything yet.':'No beats in this genre yet.')+'</p>';
+    return;
+  }
+  el.innerHTML='';
+  filtered.forEach(function(b){
+    const card=document.createElement('div');
+    card.className='beat-card';card.id='beat-card-'+b.id;
+
+    // header
+    const top=document.createElement('div');top.className='beat-top';
+    const info=document.createElement('div');
+    const titleEl=document.createElement('div');titleEl.className='beat-title';titleEl.textContent=b.title;
+    const metaEl=document.createElement('div');metaEl.className='beat-meta';
+    metaEl.textContent=(b.bpm?b.bpm+' BPM · ':'')+((b.genres||[]).join(', '));
+    info.appendChild(titleEl);info.appendChild(metaEl);
+    const shareBtn=document.createElement('button');
+    shareBtn.className='btn-share';shareBtn.textContent='⬆ Share';
+    shareBtn.addEventListener('click',function(e){e.stopPropagation();shareBeat(b.id,shareBtn);});
+    top.appendChild(info);top.appendChild(shareBtn);
+    card.appendChild(top);
+
+    // preview
+    if(b.preview_path&&b.preview_url){
+      const prev=document.createElement('div');prev.className='audio-preview';
+      const lbl=document.createElement('span');lbl.className='audio-preview-label';lbl.textContent='🎧 Preview';
+      const aud=document.createElement('audio');aud.controls=true;aud.preload='metadata';
+      aud.crossOrigin='anonymous';aud.src=b.preview_url;
+      prev.appendChild(lbl);prev.appendChild(aud);
+      card.appendChild(prev);
+    }
+
+    // license buttons
+    const actionsEl=document.createElement('div');actionsEl.className='beat-actions';
+    (b.licenses||[]).forEach(function(l,li){
+      const btn=document.createElement('button');
       const free=isFree(l);
-      if(free)return `<button class="btn-beat btn-beat-free" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download Free</button>`;
-      const existingReq=licRequests.find(r=>r.beat_id===b.id&&r.lic_name===l.name);
-      if(existingReq){
-        if(existingReq.status==='payment_confirmed')return `<button class="btn-beat btn-beat-dl" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download ${l.name}</button>`;
-        return `<button class="btn-beat btn-beat-pending">⏳ ${l.name} — ${existingReq.status.replace(/_/g,' ')}</button>`;
+      if(free){
+        btn.className='btn-beat btn-beat-free';btn.textContent='↓ Download Free';
+        btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+      } else {
+        const existingReq=licRequests.find(r=>r.beat_id===b.id&&r.lic_name===l.name);
+        if(existingReq){
+          if(existingReq.status==='payment_confirmed'){
+            btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download '+l.name;
+            btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+          } else {
+            btn.className='btn-beat btn-beat-pending';
+            btn.textContent='⏳ '+l.name+' — '+existingReq.status.replace(/_/g,' ');
+          }
+        } else {
+          const proPrice=isPro?(PRO_PRICES[l.name]!==undefined?PRO_PRICES[l.name]:null):null;
+          const proFree=isPro&&proPrice===0;
+          if(proFree){
+            btn.className='btn-beat btn-beat-free';btn.textContent='↓ '+l.name+' — Free (Pro)';
+            btn.addEventListener('click',function(){downloadBeat(b.id,li,l.name);});
+          } else {
+            const displayPrice=proPrice||l.price;
+            const proDiscount=proPrice&&proPrice>0;
+            btn.className='btn-beat btn-beat-pay';
+            btn.innerHTML='💳 '+l.name+' — '+(proDiscount?'$'+proPrice+' <s style="opacity:0.5;font-size:10px;">$'+l.price+'</s>':'$'+l.price);
+            btn.addEventListener('click',function(){openLicModal(b.id,li,l.name,displayPrice,b.title);});
+          }
+        }
       }
-      // pro users: Basic is free, Premium discounted; free users pay standard
-      const proPrice=isPro?(PRO_PRICES[l.name]!==undefined?PRO_PRICES[l.name]:null):null;
-      if(isPro&&proPrice===0){
-        return '<button class="btn-beat btn-beat-free" onclick="downloadBeat(\''+b.id+'\',\''+li+'\',\''+escQ(l.name)+'\')">↓ '+l.name+' — Free (Pro)</button>';
-      }
-      const displayPrice=proPrice||l.price;
-      const proDiscount=proPrice&&proPrice>0;
-      const priceLabel=proDiscount?('$'+proPrice+' <s style="opacity:0.5;font-size:10px;">$'+l.price+'</s>'):('$'+l.price);
-      return '<button class="btn-beat btn-beat-pay" onclick="openLicModal(\''+b.id+'\',\''+li+'\',\''+escQ(l.name)+'\',\''+displayPrice+'\',\''+escQ(b.title)+'\')">💳 '+l.name+' — '+priceLabel+'</button>';
-    }).join('');
-    return `<div class="beat-card" id="beat-card-${b.id}">
-      <div class="beat-top"><div>
-        <div class="beat-title">${b.title}</div>
-        <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
-      </div><button class="btn-share" id="share-${b.id}" onclick="shareBeat('${b.id}',this)">⬆ Share</button></div>
-      ${previewHtml}
-      <div class="beat-actions">${licBtns}</div>
-    </div>`;
-  }).join('');
+      actionsEl.appendChild(btn);
+    });
+    card.appendChild(actionsEl);
+    el.appendChild(card);
+  });
 }
+
 
 async function downloadBeat(beatId,licIndex,licName){
   if(!currentUser)return;
