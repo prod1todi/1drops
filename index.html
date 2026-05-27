@@ -225,13 +225,6 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
 </style>
 </head>
 <body>
-<script>
-// Stub so onclick attributes work before main script loads
-function showPage(p,e){
-  if(window._showPage){window._showPage(p,e);}
-  else{window._pendingPage={p,e};}
-}
-</script>
 
 <nav class="nav">
   <div class="logo" onclick="goHome()">1<span>DROPS</span><small>prod1todi</small></div>
@@ -1570,9 +1563,7 @@ function showPage(p,e){
   if(p==='dashboard'&&currentUser)showDashboard();
   if(p==='admin'&&currentUser&&currentUser.id===ADMIN_ID){updateAdmin();rebuildUpGenres();}
 }
-// Register real showPage and handle any pending call from stub
-window._showPage=showPage;
-if(window._pendingPage){showPage(window._pendingPage.p,window._pendingPage.e);window._pendingPage=null;}
+
 function goHome(){showPage('home');}
 function showITab(p,e){
   const par=e.target.closest('.page');
