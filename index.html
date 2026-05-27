@@ -462,6 +462,10 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
       <input class="inp" id="up-bpm" placeholder="e.g. 140" type="number" style="width:110px;" />
       <div class="lbl">Genres</div>
       <div class="genres-grid" id="up-genres"></div>
+      <div class="add-genre-row">
+        <input class="inp" id="up-custom-genre" placeholder="Add a new genre..." maxlength="30" type="text" />
+        <button class="btn btn-outline btn-sm" onclick="addUploadGenre()">+ Add</button>
+      </div>
       <div class="lbl">Licenses for this beat</div>
       <div id="up-lic-list"></div>
       <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
@@ -845,6 +849,16 @@ function rebuildUpGenres(){
   const c=q('up-genres');c.innerHTML='';
   allGenres.forEach(g=>{const t=buildGTag(g,c,uploadGenresSet,updateNotifyPrev);if(uploadGenresSet.has(g))t.classList.add('sel');});
 }
+function addUploadGenre(){
+  const inp=q('up-custom-genre');
+  const raw=inp.value.trim();if(!raw)return;
+  const g=raw[0].toUpperCase()+raw.slice(1);
+  if(allGenres.map(x=>x.toLowerCase()).includes(g.toLowerCase())){
+    // genre already exists, just select it
+    uploadGenresSet.add(g);rebuildUpGenres();inp.value='';return;
+  }
+  allGenres.push(g);uploadGenresSet.add(g);rebuildUpGenres();rebuildSuGenres();inp.value='';
+}
 function addCustomGenre(){
   const inp=q('su-custom-genre');
   const raw=inp.value.trim();if(!raw)return;
@@ -853,6 +867,7 @@ function addCustomGenre(){
   allGenres.push(g);suGenres.add(g);rebuildSuGenres();rebuildUpGenres();inp.value='';
 }
 q('su-custom-genre').addEventListener('keydown',e=>{if(e.key==='Enter')addCustomGenre();});
+q('up-custom-genre')&&q('up-custom-genre').addEventListener('keydown',e=>{if(e.key==='Enter')addUploadGenre();});
 
 // ════════════════════════════════════════════
 // BEAT UPLOAD (ADMIN)
