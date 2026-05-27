@@ -1317,26 +1317,25 @@ async function saveEditBeat(){
 }
 
 async function deleteBeat(id){
-  const b=beats.find(x=>x.id===id);
-  if(!b)return;
-  // show inline confirm in the modal
-  q('eb-delete-btn').style.display='none';
-  q('eb-lic-list').insertAdjacentHTML('afterend',
-    '<div id="eb-confirm-delete" style="background:var(--red-dim);border:0.5px solid var(--red);border-radius:var(--radius);padding:12px;margin-top:12px;font-size:13px;color:var(--red);">'
-    +'Are you sure? This cannot be undone.<br><div style="display:flex;gap:8px;margin-top:10px;">'
-    +'<button class="btn btn-red btn-sm" onclick="confirmDeleteBeat(\''+id+'\')">Yes, delete</button>'
-    +'<button class="btn btn-outline btn-sm" onclick="cancelDeleteBeat()">Cancel</button>'
-    +'</div></div>'
-  );
-}
-
-function cancelDeleteBeat(){
-  const el=document.getElementById('eb-confirm-delete');
-  if(el)el.remove();
-  q('eb-delete-btn').style.display='';
-}
-
-async function confirmDeleteBeat(id){
+  const btn=q('eb-delete-btn');
+  if(btn.dataset.confirm!=='1'){
+    // first click — arm the button
+    btn.dataset.confirm='1';
+    btn.textContent='Tap again to confirm delete';
+    btn.style.background='var(--red)';
+    btn.style.color='#fff';
+    btn.style.borderColor='var(--red)';
+    setTimeout(()=>{
+      btn.dataset.confirm='';
+      btn.textContent='Delete beat';
+      btn.style.background='';
+      btn.style.color='';
+      btn.style.borderColor='';
+    },3000);
+    return;
+  }
+  // second click — actually delete
+  btn.textContent='Deleting...';
   const b=beats.find(x=>x.id===id);
   if(b){
     if(b.file_path)await sb.storage.from('beats').remove([b.file_path]);
