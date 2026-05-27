@@ -1654,6 +1654,17 @@ async function restoreSession(){
 // INIT
 // ════════════════════════════════════════════
 (async()=>{
+  // immediately hide home flash by switching to saved page before any render
+  const urlParams=new URLSearchParams(window.location.search);
+  const sharedBeatId=urlParams.get('beat');
+  try{
+    const savedPage=sessionStorage.getItem('1drops_page');
+    if(!sharedBeatId&&savedPage&&document.getElementById('page-'+savedPage)){
+      document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+      document.getElementById('page-'+savedPage).classList.add('active');
+    }
+  }catch(e){}
+
   const {data:dbGenres}=await sb.from('genres').select('name').order('name');
   if(dbGenres&&dbGenres.length){
     dbGenres.map(x=>x.name).forEach(g=>{if(!allGenres.includes(g))allGenres.push(g);});
@@ -1663,9 +1674,7 @@ async function restoreSession(){
   await renderHomeBeats();
   await restoreSession();
 
-  // restore last visited page
-  const urlParams=new URLSearchParams(window.location.search);
-  const sharedBeatId=urlParams.get('beat');
+  // handle shared beat link
   if(sharedBeatId){
     await loadBeats();
     if(currentUser)await loadUserRequests();
@@ -1685,7 +1694,6 @@ async function restoreSession(){
   setInterval(async function(){
     const prevCount=beats.length;
     await loadBeats();
-    // only re-render if beats changed
     if(beats.length!==prevCount){
       const homePage=document.getElementById('page-home');
       const dashPage=document.getElementById('page-dashboard');
