@@ -1860,6 +1860,12 @@ async function uploadDelivery(id){
     const {data:pubData}=sb.storage.from('beats').getPublicUrl(path);
     const delivery_url=pubData?.publicUrl||null;
     await sb.from('custom_requests').update({delivery_url,status:'completed'}).eq('id',id);
+    // notify artist by email
+    const {data:req}=await sb.from('custom_requests').select('*').eq('id',id).maybeSingle();
+    if(req){
+      try{await sb.functions.invoke('notify-delivery',{body:{request:req}});}
+      catch(e){console.warn('Delivery notification failed:',e);}
+    }
     if(btn){btn.textContent='✓ Delivered';btn.disabled=true;}
     await updateAdmin();
   };
