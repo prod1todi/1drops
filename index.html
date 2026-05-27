@@ -44,6 +44,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .hero-sub{font-size:15px;color:var(--text2);margin-top:12px;margin-bottom:28px;letter-spacing:0.3px;}
 .hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 .beat-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.beat-card.highlighted{border-color:var(--gold);box-shadow:0 0 0 2px rgba(240,165,0,0.15);animation:highlightFade 3s ease forwards 1s;}
+@keyframes highlightFade{0%{border-color:var(--gold);box-shadow:0 0 0 2px rgba(240,165,0,0.15);}100%{border-color:var(--border);box-shadow:none;}}
+.btn-share{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;font-size:11px;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-body);font-weight:500;transition:all 0.15s;}
+.btn-share:hover{border-color:var(--border2);color:#ccc;}
+.btn-share.copied{border-color:var(--green);color:var(--green);}
 .btn-beat{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);font-size:12px;cursor:pointer;border:none;font-weight:600;font-family:var(--font-body);transition:all 0.15s;white-space:nowrap;}
 .btn-beat-free{background:var(--green-dim);border:0.5px solid var(--green);color:var(--green);}.btn-beat-free:hover{background:#0f2000;}
 .btn-beat-pay{background:var(--gold-dim);border:0.5px solid var(--gold);color:var(--gold);}.btn-beat-pay:hover{background:#201800;}
@@ -1057,14 +1062,15 @@ function renderHomeBeatsList(){
         <span class="audio-preview-label">🎧 Preview</span>
         <audio controls preload="metadata" crossorigin="anonymous" src="${b.preview_url||''}"></audio>
       </div>`:'';
+    const shareBtn='<button class="btn-share" id="share-'+b.id+'" onclick="shareBeat(\''+b.id+'\')">⬆ Share</button>';
     const note=currentUser
       ?'<div style="margin-top:10px;font-size:12px;color:var(--text3);">Go to <a href="#" onclick="showPage(String.fromCharCode(100,97,115,104,98,111,97,114,100));return false;" style="color:var(--gold);">My Dashboard</a> to purchase or download.</div>'
       :'<div style="margin-top:10px;font-size:12px;color:var(--text3);"><a href="#" onclick="showPage(String.fromCharCode(108,111,103,105,110));return false;" style="color:var(--gold);">Log in</a> or <a href="#" onclick="showPage(String.fromCharCode(115,105,103,110,117,112));return false;" style="color:var(--gold);">sign up</a> to purchase or download.</div>';
-    return `<div class="beat-card">
+    return `<div class="beat-card" id="beat-card-${b.id}">
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
         <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
-      </div></div>
+      </div>${shareBtn}</div>
       ${previewHtml}
       ${note}
     </div>`;
@@ -1112,11 +1118,11 @@ function renderDashBeats(){
       const priceLabel=proDiscount?('$'+proPrice+' <s style="opacity:0.5;font-size:10px;">$'+l.price+'</s>'):('$'+l.price);
       return '<button class="btn-beat btn-beat-pay" onclick="openLicModal(\''+b.id+'\',\''+li+'\',\''+escQ(l.name)+'\',\''+displayPrice+'\',\''+escQ(b.title)+'\')">💳 '+l.name+' — '+priceLabel+'</button>';
     }).join('');
-    return `<div class="beat-card">
+    return `<div class="beat-card" id="beat-card-${b.id}">
       <div class="beat-top"><div>
         <div class="beat-title">${b.title}</div>
         <div class="beat-meta">${b.bpm?b.bpm+' BPM · ':''}${(b.genres||[]).join(', ')}</div>
-      </div></div>
+      </div><button class="btn-share" id="share-${b.id}" onclick="shareBeat('${b.id}')">⬆ Share</button></div>
       ${previewHtml}
       <div class="beat-actions">${licBtns}</div>
     </div>`;
@@ -1528,6 +1534,42 @@ function flash(bannerId,msgId,msg){
 }
 function q(id){return document.getElementById(id);}
 
+// ── SHARE ──
+function shareBeat(beatId){
+  const url=window.location.origin+window.location.pathname+'?beat='+beatId;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(()=>flashShareBtn(beatId));
+  } else {
+    // fallback for older browsers
+    const ta=document.createElement('textarea');
+    ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    document.execCommand('copy');document.body.removeChild(ta);
+    flashShareBtn(beatId);
+  }
+}
+function flashShareBtn(beatId){
+  const btns=document.querySelectorAll('#share-'+beatId);
+  btns.forEach(btn=>{
+    btn.textContent='✓ Copied';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='⬆ Share';btn.classList.remove('copied');},2000);
+  });
+}
+function highlightBeat(beatId){
+  setTimeout(()=>{
+    const card=document.getElementById('beat-card-'+beatId);
+    if(!card)return;
+    card.classList.add('highlighted');
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    // pulse the audio player if present
+    const audio=card.querySelector('audio');
+    if(audio){
+      const wrap=card.querySelector('.audio-preview');
+      if(wrap){wrap.style.border='0.5px solid var(--gold)';setTimeout(()=>{wrap.style.border='';},3000);}
+    }
+  },600); // wait for beats to render
+}
+
 // ── AUDIO MANAGER — stop all other players when one starts ──
 document.addEventListener('play', function(e){
   document.querySelectorAll('audio').forEach(a=>{
@@ -1583,13 +1625,21 @@ async function restoreSession(){
   const {data:dbGenres}=await sb.from('genres').select('name').order('name');
   if(dbGenres&&dbGenres.length){
     const names=dbGenres.map(x=>x.name);
-    // merge with defaults, preserving order (defaults first, then extras)
     names.forEach(g=>{if(!allGenres.includes(g))allGenres.push(g);});
   }
   rebuildSuGenres();
   renderUpLics();
-  renderHomeBeats();
+  await renderHomeBeats();
   restoreSession();
+  // handle shared beat link
+  const urlParams=new URLSearchParams(window.location.search);
+  const sharedBeatId=urlParams.get('beat');
+  if(sharedBeatId){
+    // make sure we're on home page
+    document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+    document.getElementById('page-home').classList.add('active');
+    highlightBeat(sharedBeatId);
+  }
 })();
 </script>
 </body>
