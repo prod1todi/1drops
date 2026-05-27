@@ -1002,7 +1002,7 @@ async function renderHomeBeats(){
         ?`<button class="btn-beat btn-beat-free" ${currentUser?`onclick="downloadBeat('${b.id}','0','${escQ(l.name)}')"`:''}>↓ ${l.name} — Free${!currentUser?' (log in to download)':''}</button>`
         :`<button class="btn-beat btn-beat-locked">🔒 ${l.name} — $${l.price}</button>`
       ).join('')}</div>
-      ${!currentUser?'<div style="margin-top:8px;font-size:12px;color:var(--text3);">Log in to download or request a license</div>':''}
+
     </div>`;
   }).join('');
 }
@@ -1019,14 +1019,15 @@ async function loadUserRequests(){
 function renderDashBeats(){
   if(!currentUser)return;
   const el=q('dash-beats-list');
-  const isPro=currentUser.plan==='paid';
-  if(!beats.length){el.innerHTML='<p class="empty">No beats yet — Todi hasn\'t dropped anything yet.</p>';return;}
+  const isPro=currentUser.plan==='paid'||currentUser.id===ADMIN_ID;
+  if(!beats.length){el.innerHTML='<p class="empty">No beats yet — Todi hasn't dropped anything yet.</p>';return;}
   el.innerHTML=beats.map(b=>{
     const previewHtml=b.preview_path?`
       <div class="audio-preview">
         <span class="audio-preview-label">🎧 Preview</span>
         <audio controls preload="none" src="${b.preview_url||''}"></audio>
       </div>`:'';
+    const PRO_PRICES={Basic:25,Premium:100,Exclusive:500};
     const licBtns=(b.licenses||[]).map((l,li)=>{
       const free=isFree(l);
       if(free)return `<button class="btn-beat btn-beat-free" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download Free</button>`;
@@ -1035,8 +1036,10 @@ function renderDashBeats(){
         if(existingReq.status==='payment_confirmed')return `<button class="btn-beat btn-beat-dl" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download ${l.name}</button>`;
         return `<button class="btn-beat btn-beat-pending">⏳ ${l.name} — ${existingReq.status.replace(/_/g,' ')}</button>`;
       }
-      if(!isPro)return `<button class="btn-beat btn-beat-locked">🔒 ${l.name} — $${l.price}</button>`;
-      return `<button class="btn-beat btn-beat-pay" onclick="openLicModal('${b.id}','${li}','${escQ(l.name)}','${l.price}','${escQ(b.title)}')">💳 ${l.name} — $${l.price}</button>`;
+      // pro users get discounted price, free users pay standard price
+      const displayPrice=isPro&&PRO_PRICES[l.name]?PRO_PRICES[l.name]:l.price;
+      const priceLabel=isPro&&PRO_PRICES[l.name]?`$${PRO_PRICES[l.name]} <span style="font-size:10px;opacity:0.7;text-decoration:line-through;">$${l.price}</span>`:(`$${l.price}`);
+      return `<button class="btn-beat btn-beat-pay" onclick="openLicModal('${b.id}','${li}','${escQ(l.name)}','${displayPrice}','${escQ(b.title)}')">💳 ${l.name} — ${priceLabel}</button>`;
     }).join('');
     return `<div class="beat-card">
       <div class="beat-top"><div>
