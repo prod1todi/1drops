@@ -1103,6 +1103,14 @@ function renderMyCustom(){
         ${r.status==='completed'?`<span class="rs" style="color:var(--green);margin-top:3px;">✓ Beat delivered</span>`:''}
         ${rejected?`<span class="rs" style="color:var(--red);margin-top:3px;">Request was declined</span>`:''}
       </div></div>
+      ${r.status==='quoted'&&!r.deposit?`
+        <div class="req-actions">
+          <span style="font-size:12px;color:var(--gold);">💰 Deposit due: <strong>$${Math.ceil(r.agreed_price/2)}</strong> — send payment to Todi to begin production.</span>
+        </div>`:''}
+      ${r.status==='in_production'?`
+        <div class="req-actions">
+          <span style="font-size:12px;color:var(--blue);">🎧 In production — final payment of <strong>$${Math.floor(r.agreed_price/2)}</strong> due on delivery.</span>
+        </div>`:''}
       ${!rejected?`<div class="steps">${STEPS.map((s,i)=>`<div class="step ${i<step?'done':i===step?'active':''}">${s}</div>`).join('')}</div>`:''}
     </div>`;
   }).join('');
