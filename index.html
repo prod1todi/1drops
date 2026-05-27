@@ -590,7 +590,7 @@ async function doSignup(){
   if(suGenres.size===0){alert('Please select at least one genre.');return;}
   const {data,error}=await sb.auth.signUp({email,password:pass});
   if(error){alert(error.message);return;}
-  await sb.from('profiles').insert({id:data.user.id,name,plan:selectedPlan,genres:[...suGenres]});
+  await sb.from('profiles').insert({id:data.user.id,name,email,plan:selectedPlan,genres:[...suGenres]});
   currentUser={id:data.user.id,name,email,plan:selectedPlan,genres:[...suGenres]};
   q('su-name').value='';q('su-email').value='';q('su-pass').value='';
   suGenres.clear();rebuildSuGenres();
@@ -1243,7 +1243,7 @@ async function restoreSession(){
   if(!profile){
     const name=session.user.user_metadata?.full_name||session.user.email.split('@')[0];
     const {data:created,error:createErr}=await sb.from('profiles')
-      .insert({id:session.user.id,name,plan:'free',genres:[]})
+      .insert({id:session.user.id,name,email:session.user.email,plan:'free',genres:[]})
       .select().maybeSingle();
     if(createErr){console.error('Profile create error:',createErr.message);return;}
     profile=created;
