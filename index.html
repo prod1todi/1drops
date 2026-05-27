@@ -1049,7 +1049,7 @@ function renderDashBeats(){
         <span class="audio-preview-label">🎧 Preview</span>
         <audio controls preload="metadata" crossorigin="anonymous" src="${b.preview_url||''}"></audio>
       </div>`:'';
-    const PRO_PRICES={Basic:25,Premium:100,Exclusive:500};
+    const PRO_PRICES={Basic:0,Premium:100,Exclusive:500};
     const licBtns=(b.licenses||[]).map((l,li)=>{
       const free=isFree(l);
       if(free)return `<button class="btn-beat btn-beat-free" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download Free</button>`;
@@ -1058,11 +1058,15 @@ function renderDashBeats(){
         if(existingReq.status==='payment_confirmed')return `<button class="btn-beat btn-beat-dl" onclick="downloadBeat('${b.id}','${li}','${escQ(l.name)}')">↓ Download ${l.name}</button>`;
         return `<button class="btn-beat btn-beat-pending">⏳ ${l.name} — ${existingReq.status.replace(/_/g,' ')}</button>`;
       }
-      // pro users get discounted price, free users pay standard price
-      const displayPrice=isPro&&PRO_PRICES[l.name]?PRO_PRICES[l.name]:l.price;
-      const proDiscount=isPro&&PRO_PRICES[l.name];
-      const priceLabel=proDiscount?('$'+PRO_PRICES[l.name]+' <s style="opacity:0.5;font-size:10px;">$'+l.price+'</s>'):('$'+l.price);
-      return '<button class="btn-beat btn-beat-pay" onclick="openLicModal(\'' + b.id + '\',\'' + li + '\',\'' + escQ(l.name) + '\',\'' + displayPrice + '\',\'' + escQ(b.title) + '\')">💳 ' + l.name + ' — ' + priceLabel + '</button>';
+      // pro users: Basic is free, Premium discounted; free users pay standard
+      const proPrice=isPro?(PRO_PRICES[l.name]!==undefined?PRO_PRICES[l.name]:null):null;
+      if(isPro&&proPrice===0){
+        return '<button class="btn-beat btn-beat-free" onclick="downloadBeat(\''+b.id+'\',\''+li+'\',\''+escQ(l.name)+'\')">↓ '+l.name+' — Free (Pro)</button>';
+      }
+      const displayPrice=proPrice||l.price;
+      const proDiscount=proPrice&&proPrice>0;
+      const priceLabel=proDiscount?('$'+proPrice+' <s style="opacity:0.5;font-size:10px;">$'+l.price+'</s>'):('$'+l.price);
+      return '<button class="btn-beat btn-beat-pay" onclick="openLicModal(\''+b.id+'\',\''+li+'\',\''+escQ(l.name)+'\',\''+displayPrice+'\',\''+escQ(b.title)+'\')">💳 '+l.name+' — '+priceLabel+'</button>';
     }).join('');
     return `<div class="beat-card">
       <div class="beat-top"><div>
@@ -1136,7 +1140,7 @@ function updateLicenseNote(){
   const val=q('cb-license').value;
   const el=q('cb-license-note');
   if(val==='basic'){
-    el.textContent=isPro?'$25 — discounted Pro rate.':'$50 — standard rate.';
+    el.textContent=isPro?'✓ Included in your Pro membership — free to download.':'$50 — standard rate.';
     el.style.color=isPro?'var(--green)':'var(--text3)';
   } else if(val==='premium'){
     el.textContent=isPro?'$100 — discounted Pro rate.':'$150 — standard rate.';
@@ -1156,7 +1160,7 @@ async function submitCustomRequest(){
   if(!desc){alert('Please describe what you need.');return;}
   const isPro=currentUser.plan==='paid';
   // determine license cost for display in admin
-  const PRICES={basic:{pro:'$25',free:'$50'},premium:{pro:'$100',free:'$150'},exclusive:{pro:'$500',free:'$500'}};
+  const PRICES={basic:{pro:'free',free:'$50'},premium:{pro:'$100',free:'$150'},exclusive:{pro:'$500',free:'$500'}};
   const licenseCost=PRICES[license]?(isPro?PRICES[license].pro:PRICES[license].free):'to be negotiated';
   const r={
     artist_id:currentUser.id,
