@@ -373,9 +373,9 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
       <input class="inp" id="cb-ref-link" placeholder="Paste a YouTube / SoundCloud / Spotify link..." type="text" />
       <div class="lbl">License type</div>
       <select class="inp" id="cb-license" onchange="updateLicenseNote()">
-        <option value="basic">Basic — Free for Pro members / $25 for Free members</option>
-        <option value="unlimited">Unlimited — $30</option>
-        <option value="exclusive">Exclusive — Price to be negotiated</option>
+        <option value="basic">Basic — $25 for Pro / $50 for Free</option>
+        <option value="premium">Premium — $100 for Pro / $150 for Free</option>
+        <option value="exclusive">Exclusive — $500 (all members)</option>
       </select>
       <div id="cb-license-note" style="margin-top:8px;font-size:12px;color:var(--text3);line-height:1.6;"></div>
       <div class="info-box info-gold" style="margin-top:14px;">
@@ -1043,14 +1043,14 @@ function updateLicenseNote(){
   const val=q('cb-license').value;
   const el=q('cb-license-note');
   if(val==='basic'){
-    el.textContent=isPro?'✓ Included in your Pro membership — no extra charge.':'Basic license costs $25. Payment confirmed by Todi before delivery.';
+    el.textContent=isPro?'$25 — discounted Pro rate.':'$50 — standard rate.';
     el.style.color=isPro?'var(--green)':'var(--text3)';
-  } else if(val==='unlimited'){
-    el.textContent='$30 — unlimited non-exclusive use. Payment confirmed by Todi before delivery.';
-    el.style.color='var(--text3)';
+  } else if(val==='premium'){
+    el.textContent=isPro?'$100 — discounted Pro rate.':'$150 — standard rate.';
+    el.style.color=isPro?'var(--green)':'var(--text3)';
   } else if(val==='exclusive'){
-    el.textContent='Exclusive rights — price will be quoted by Todi after reviewing your request.';
-    el.style.color='var(--blue)';
+    el.textContent='$500 — full exclusive rights. Same price for all members.';
+    el.style.color='var(--gold)';
   }
 }
 
@@ -1063,7 +1063,8 @@ async function submitCustomRequest(){
   if(!desc){alert('Please describe what you need.');return;}
   const isPro=currentUser.plan==='paid';
   // determine license cost for display in admin
-  const licenseCost=license==='basic'?(isPro?'included':'$25'):license==='unlimited'?'$30':'to be negotiated';
+  const PRICES={basic:{pro:'$25',free:'$50'},premium:{pro:'$100',free:'$150'},exclusive:{pro:'$500',free:'$500'}};
+  const licenseCost=PRICES[license]?(isPro?PRICES[license].pro:PRICES[license].free):'to be negotiated';
   const r={
     artist_id:currentUser.id,
     artist_name:currentUser.name,
