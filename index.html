@@ -1317,14 +1317,16 @@ async function saveEditBeat(){
 }
 
 async function deleteBeat(id){
+  console.log('deleteBeat called, id:', id);
   const btn=q('eb-delete-btn');
+  console.log('btn:', btn, 'confirm state:', btn.dataset.confirm);
   if(btn.dataset.confirm!=='1'){
-    // first click — arm the button
     btn.dataset.confirm='1';
     btn.textContent='Tap again to confirm delete';
     btn.style.background='var(--red)';
     btn.style.color='#fff';
     btn.style.borderColor='var(--red)';
+    console.log('Armed delete button');
     setTimeout(()=>{
       btn.dataset.confirm='';
       btn.textContent='Delete beat';
@@ -1334,14 +1336,15 @@ async function deleteBeat(id){
     },3000);
     return;
   }
-  // second click — actually delete
+  console.log('Executing delete...');
   btn.textContent='Deleting...';
   const b=beats.find(x=>x.id===id);
   if(b){
-    if(b.file_path)await sb.storage.from('beats').remove([b.file_path]);
-    if(b.preview_path)await sb.storage.from('beats').remove([b.preview_path]);
+    if(b.file_path){const r1=await sb.storage.from('beats').remove([b.file_path]);console.log('file remove:',r1);}
+    if(b.preview_path){const r2=await sb.storage.from('beats').remove([b.preview_path]);console.log('preview remove:',r2);}
   }
   const {error}=await sb.from('beats').delete().eq('id',id);
+  console.log('delete result error:', error);
   if(error){alert('Error deleting beat: '+error.message);return;}
   beats=beats.filter(x=>x.id!==id);
   closeEditBeat();
