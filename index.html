@@ -1348,9 +1348,9 @@ async function deleteBeat(id){
   if(error){alert('Error deleting beat: '+error.message);return;}
   beats=beats.filter(x=>x.id!==id);
   closeEditBeat();
-  renderAdmBeats();
-  renderHomeBeats();
   await updateAdmin();
+  renderAdmBeats();
+  await renderHomeBeats();
 }
 
 // ════════════════════════════════════════════
