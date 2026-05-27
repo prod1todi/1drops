@@ -305,8 +305,10 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
       <button class="btn btn-outline btn-sm" onclick="addCustomGenre()">+ Add</button>
     </div>
     <p class="hint">New genres become available for all artists</p>
-    <div style="margin-top:20px;" id="su-btns">
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:9px;" id="su-btns">
       <button class="btn btn-gold" onclick="doSignup()">Create free account →</button>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0;"><div style="flex:1;height:0.5px;background:var(--border);"></div><span style="font-size:11px;color:var(--text3);">OR</span><div style="flex:1;height:0.5px;background:var(--border);"></div></div>
+      <button class="btn btn-outline" onclick="doGoogleSignup()">Sign up with Google</button>
     </div>
     <div class="auth-toggle">Already have an account? <a onclick="showPage('login')">Log in</a></div>
   </div>
@@ -324,7 +326,8 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
     <input class="inp" id="li-pass" placeholder="Your password" type="password" />
     <div style="margin-top:20px;display:flex;flex-direction:column;gap:9px;">
       <button class="btn btn-gold" onclick="doLogin()">Log in →</button>
-      <button class="btn btn-outline" onclick="doGoogleLogin()">Continue with Google</button>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0;"><div style="flex:1;height:0.5px;background:var(--border);"></div><span style="font-size:11px;color:var(--text3);">OR</span><div style="flex:1;height:0.5px;background:var(--border);"></div></div>
+      <button class="btn btn-outline" onclick="doGoogleLogin()">Log in with Google</button>
     </div>
     <div class="auth-toggle">No account? <a onclick="showPage('signup')">Sign up</a></div>
   </div>
@@ -595,7 +598,18 @@ async function doLogin(){
 }
 
 async function doGoogleLogin(){
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href}});
+  const {error}=await sb.auth.signInWithOAuth({
+    provider:'google',
+    options:{redirectTo:window.location.origin+'?google=login'}
+  });
+  if(error)alert(error.message);
+}
+
+async function doGoogleSignup(){
+  const {error}=await sb.auth.signInWithOAuth({
+    provider:'google',
+    options:{redirectTo:window.location.origin+'?google=signup'}
+  });
   if(error)alert(error.message);
 }
 
@@ -1150,12 +1164,38 @@ function q(id){return document.getElementById(id);}
 async function restoreSession(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){setLoggedOutNav();return;}
-  const {data:profile,error}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+
+  // check if this is a Google OAuth redirect
+  const params=new URLSearchParams(window.location.search);
+  const googleAction=params.get('google'); // 'login' or 'signup'
+  if(googleAction){
+    // clean up URL
+    window.history.replaceState({},document.title,window.location.pathname);
+  }
+
+  let {data:profile,error}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
   if(error){console.error('Profile error:',error.message);return;}
+
+  // auto-create profile for new Google users
+  if(!profile){
+    const name=session.user.user_metadata?.full_name||session.user.email.split('@')[0];
+    const {data:created,error:createErr}=await sb.from('profiles')
+      .insert({id:session.user.id,name,plan:'free',genres:[]})
+      .select().maybeSingle();
+    if(createErr){console.error('Profile create error:',createErr.message);return;}
+    profile=created;
+  }
+
   if(profile){
     currentUser={...profile,email:session.user.email};
     setLoggedInNav();
     renderLoggedInHome();
+    // after Google OAuth redirect, go straight to dashboard
+    if(googleAction){
+      document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+      document.getElementById('page-dashboard').classList.add('active');
+      showDashboard();
+    }
   }
 }
 
