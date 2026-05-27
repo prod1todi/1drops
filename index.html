@@ -1233,11 +1233,25 @@ async function downloadBeat(beatId,licIndex,licName){
   if(!currentUser)return;
   const beat=beats.find(b=>b.id===beatId);
   if(!beat||!beat.file_path){alert('No file available for this beat yet.');return;}
-  // open window immediately (synchronous) so mobile browsers allow it
-  const win=window.open('','_blank');
   const {data,error}=await sb.storage.from('beats').createSignedUrl(beat.file_path,60);
-  if(error){if(win)win.close();alert('Download failed. Please try again.');return;}
-  if(win){win.location.href=data.signedUrl;}else{window.location.href=data.signedUrl;}
+  if(error){alert('Download failed. Please try again.');return;}
+  // get file extension from path
+  const ext=beat.file_path.split('.').pop()||'mp3';
+  const filename=beat.title+'.'+ext;
+  try{
+    // fetch and create blob for proper filename
+    const resp=await fetch(data.signedUrl);
+    const blob=await resp.blob();
+    const blobUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=blobUrl;a.download=filename;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(blobUrl),5000);
+  }catch(e){
+    // fallback for browsers that block blob downloads
+    window.open(data.signedUrl,'_blank');
+  }
 }
 
 function isFree(l){return parseFloat(l.price)===0||l.price==='0'||l.price===''||l.price===undefined||l.price===null;}
