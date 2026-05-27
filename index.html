@@ -1684,8 +1684,10 @@ async function restoreSession(){
   } else if(currentUser){
     try{
       const savedPage=sessionStorage.getItem('1drops_page');
-      if(savedPage&&document.getElementById('page-'+savedPage)){
-        showPage(savedPage);
+      if(savedPage&&savedPage!=='home'&&document.getElementById('page-'+savedPage)){
+        // page is already visible from the top of init — just load its data
+        if(savedPage==='dashboard')showDashboard();
+        else if(savedPage==='admin'){updateAdmin();rebuildUpGenres();}
       }
     }catch(e){}
   }
