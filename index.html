@@ -2427,6 +2427,10 @@ function renderAdmLic(){
       } else if(r.status==='rejected'){
         const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--red);';
         span.textContent='Rejected';actions.appendChild(span);
+        const renewBtn=document.createElement('button');renewBtn.className='btn btn-outline btn-sm';
+        renewBtn.textContent='↺ Renew — restore payment link';
+        renewBtn.addEventListener('click',function(){renewLicRequest(r.id);});
+        actions.appendChild(renewBtn);
       }
       card.appendChild(actions);section.appendChild(card);
     });
@@ -2532,6 +2536,10 @@ function renderAdmCustom(){
       } else if(r.status==='rejected'){
         const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--red);';
         span.textContent='Rejected';actions.appendChild(span);
+        const reopenBtn=document.createElement('button');reopenBtn.className='btn btn-outline btn-sm';
+        reopenBtn.textContent='↺ Reopen request';
+        reopenBtn.addEventListener('click',function(){reopenCustomRequest(r.id);});
+        actions.appendChild(reopenBtn);
       }
       card.appendChild(actions);section.appendChild(card);
     });
@@ -2539,6 +2547,29 @@ function renderAdmCustom(){
   });
 }
 
+
+
+async function renewLicRequest(id){
+  // delete the rejected request so artist sees fresh payment button
+  const {error}=await sb.from('license_requests').delete().eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  licRequests=licRequests.filter(r=>r.id!==id);
+  await updateAdmin();
+  flash('up-banner','up-msg','License request removed — artist can now pay again.');
+}
+
+async function reopenCustomRequest(id){
+  const {error}=await sb.from('custom_requests').update({status:'submitted'}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  const req=customRequests.find(r=>r.id===id);
+  if(req){
+    req.status='submitted';
+    const artist=artists.find(a=>a.id===req.artist_id);
+    notifyArtist('custom_accepted',{...req,agreed_price:req.agreed_price||0,artist_email:artist?.email||''});
+  }
+  await updateAdmin();
+  flash('up-banner','up-msg','Custom request reopened — artist has been notified.');
+}
 
 async function setCustomPrice(id){
   const val=document.getElementById('price-'+id).value;
