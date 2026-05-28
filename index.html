@@ -2135,15 +2135,20 @@ function flash(bannerId,msgId,msg){
 function q(id){return document.getElementById(id);}
 
 // ── CLEAR SEARCH AUTOFILL ──
-// Chrome ignores autocomplete=off so we clear it manually on load and focus
-document.addEventListener('DOMContentLoaded', function(){
+// Chrome autofills after DOMContentLoaded so we need a delay
+function clearSearchAutofill(){
   const s=document.getElementById('home-search-input');
-  if(s){
-    s.value='';
-    s.addEventListener('focus',function(){if(s.value&&!s.dataset.usertyped)s.value='';});
-    s.addEventListener('input',function(){s.dataset.usertyped='1';});
-  }
-});
+  if(!s)return;
+  s.value='';
+  // keep clearing for 2 seconds to catch delayed autofill
+  let attempts=0;
+  const interval=setInterval(function(){
+    if(s.value&&!s.dataset.usertyped){s.value='';}
+    if(++attempts>20)clearInterval(interval);
+  },100);
+  s.addEventListener('input',function(){s.dataset.usertyped='1';clearInterval(interval);});
+}
+window.addEventListener('load',clearSearchAutofill);
 
 // ── AUDIO MANAGER — stop all other players when one starts ──
 document.addEventListener('play', function(e){
