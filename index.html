@@ -1838,16 +1838,9 @@ function openLicModal(beatId,licIndex,licName,price,beatTitle){
   q('modal-title').textContent=licName+' License — $'+price;
   q('modal-sub').textContent='"'+beatTitle+'" — Pay $'+price+' via PayPal. Todi confirms receipt and your download unlocks.';
   // Build PayPal.me link button
-  q('modal-paypal-btn').innerHTML='';
-  const payBtn=document.createElement('button');
-  payBtn.className='btn btn-gold';
-  payBtn.style.cssText='width:100%;justify-content:center;';
-  payBtn.textContent='Pay $'+price+' via PayPal →';
-  payBtn.addEventListener('click',function(){
-    window.open('https://paypal.me/oluwatodimu0/'+price,'_blank');
-    confirmLicRequest();
-  });
-  q('modal-paypal-btn').appendChild(payBtn);
+  const safeTitle=beatTitle.replace(/'/g,"\'");
+  const safeLicName=licName.replace(/'/g,"\'");
+  q('modal-paypal-btn').innerHTML='<button class="btn btn-gold" style="width:100%;justify-content:center;" onclick="notifyAdmin(\'license_request\',{beat_title:\''+safeTitle+'\',lic_name:\''+safeLicName+'\',price:'+price+',method:\'PayPal\',artist_name:currentUser.name});confirmLicRequest();window.open(\'https://paypal.me/oluwatodimu0/'+price+'\',\'_blank\');">Pay $'+price+' via PayPal →</button>';
   q('lic-modal').classList.add('open');
 }
 function closeModal(){q('lic-modal').classList.remove('open');modalContext=null;}
