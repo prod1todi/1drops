@@ -861,7 +861,26 @@ async function doSignup(){
   if(pass.length<6){alert('Password must be at least 6 characters.');return;}
   if(suGenres.size===0){alert('Please select at least one genre.');return;}
   const {data,error}=await sb.auth.signUp({email,password:pass});
-  if(error){alert(error.message);return;}
+  if(error){
+    if(error.message.toLowerCase().includes('already registered')||error.message.toLowerCase().includes('already been registered')){
+      // user exists but has no profile — try signing them in and creating the profile
+      const {data:signinData,error:signinErr}=await sb.auth.signInWithPassword({email,password:pass});
+      if(signinErr){alert('This email is already registered. Try logging in instead.');return;}
+      const {data:existingProfile}=await sb.from('profiles').select('id').eq('id',signinData.user.id).maybeSingle();
+      if(existingProfile){alert('This account already exists. Please log in.');await sb.auth.signOut();return;}
+      // no profile — create one (re-registration after deletion)
+      await sb.from('profiles').insert({id:signinData.user.id,name,email,plan:selectedPlan,genres:[...suGenres]});
+      currentUser={id:signinData.user.id,name,email,plan:selectedPlan,genres:[...suGenres]};
+      notifyAdmin('new_signup',{name,email,plan:selectedPlan});
+      q('su-name').value='';q('su-email').value='';q('su-pass').value='';
+      suGenres.clear();rebuildSuGenres();
+      setLoggedInNav();
+      flash('su-banner','su-msg','Welcome back '+name+'! Account restored.');
+      setTimeout(()=>showDashboard(),1000);
+      return;
+    }
+    alert(error.message);return;
+  }
   await sb.from('profiles').insert({id:data.user.id,name,email,plan:selectedPlan,genres:[...suGenres]});
   currentUser={id:data.user.id,name,email,plan:selectedPlan,genres:[...suGenres]};
   q('su-name').value='';q('su-email').value='';q('su-pass').value='';
