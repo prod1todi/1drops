@@ -753,6 +753,7 @@ async function doSignup(){
   q('su-name').value='';q('su-email').value='';q('su-pass').value='';
   suGenres.clear();rebuildSuGenres();
   setLoggedInNav();
+  notifyAdmin('new_signup',{name,email,plan:selectedPlan});
   flash('su-banner','su-msg',`Welcome ${name}! Account created.`);
   setTimeout(()=>showDashboard(),1000);
 }
@@ -1169,6 +1170,16 @@ async function notifyArtists(beat){
   catch(e){console.warn('Notification failed:',e);}
 }
 
+async function notifyAdmin(type, data){
+  try{await sb.functions.invoke('notify-admin',{body:{type,data}});}
+  catch(e){console.warn('Admin notification failed:',e);}
+}
+
+async function notifyArtist(type, data){
+  try{await sb.functions.invoke('notify-artist',{body:{type,data}});}
+  catch(e){console.warn('Artist notification failed:',e);}
+}
+
 // ════════════════════════════════════════════
 // BEATS DISPLAY
 // ════════════════════════════════════════════
@@ -1433,6 +1444,7 @@ async function confirmLicRequest(){
   if(error){console.warn('License request error:',error.message);return;}
   licRequests.push(r);
   renderDashBeats();renderDashLic();
+  notifyAdmin('license_request',{...r,artist_name:currentUser.name});
   flash('su-banner','su-msg','Payment sent! Todi will confirm and your download will unlock.');
 }
 function renderDashLic(){
@@ -1522,6 +1534,7 @@ async function submitCustomRequest(){
   q('cb-license').value='basic';
   updateLicenseNote();
   renderMyCustom();
+  notifyAdmin('custom_request',r);
   flash('su-banner','su-msg','Custom beat request submitted!');
 }
 function renderMyCustom(){
@@ -1768,7 +1781,12 @@ function renderAdmLic(){
       </div>
     </div>`).join('');
 }
-async function confirmPayment(id){await sb.from('license_requests').update({status:'payment_confirmed'}).eq('id',id);await updateAdmin();}
+async function confirmPayment(id){
+  await sb.from('license_requests').update({status:'payment_confirmed'}).eq('id',id);
+  const req=licRequests.find(r=>r.id===id);
+  if(req){const artist=artists.find(a=>a.id===req.artist_id);notifyArtist('payment_confirmed',{...req,artist_email:artist?.email||''});}
+  await updateAdmin();
+}
 async function rejectLicReq(id){await sb.from('license_requests').update({status:'rejected'}).eq('id',id);await updateAdmin();}
 function renderAdmCustom(){
   const el=q('adm-custom-list');
@@ -1837,10 +1855,25 @@ async function setCustomPrice(id){
   const val=document.getElementById('price-'+id).value;
   if(!val||isNaN(val)){alert('Please enter a valid price.');return;}
   await sb.from('custom_requests').update({agreed_price:parseFloat(val),status:'quoted'}).eq('id',id);
+  const req=customRequests.find(r=>r.id===id);
+  if(req){
+    const artist=artists.find(a=>a.id===req.artist_id);
+    notifyArtist('custom_accepted',{...req,agreed_price:parseFloat(val),artist_email:artist?.email||''});
+  }
   await updateAdmin();
 }
-async function rejectCustom(id){await sb.from('custom_requests').update({status:'rejected'}).eq('id',id);await updateAdmin();}
-async function markDeposit(id){await sb.from('custom_requests').update({deposit:true,status:'in_production'}).eq('id',id);await updateAdmin();}
+async function rejectCustom(id){
+  await sb.from('custom_requests').update({status:'rejected'}).eq('id',id);
+  const req=customRequests.find(r=>r.id===id);
+  if(req){const artist=artists.find(a=>a.id===req.artist_id);notifyArtist('custom_rejected',{...req,artist_email:artist?.email||''});}
+  await updateAdmin();
+}
+async function markDeposit(id){
+  await sb.from('custom_requests').update({deposit:true,status:'in_production'}).eq('id',id);
+  const req=customRequests.find(r=>r.id===id);
+  if(req){const artist=artists.find(a=>a.id===req.artist_id);notifyArtist('deposit_confirmed',{...req,artist_email:artist?.email||''});}
+  await updateAdmin();
+}
 async function markComplete(id){
   await sb.from('custom_requests').update({final_paid:true,status:'completed'}).eq('id',id);
   await updateAdmin();
