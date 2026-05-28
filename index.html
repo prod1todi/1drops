@@ -1838,7 +1838,16 @@ function openLicModal(beatId,licIndex,licName,price,beatTitle){
   q('modal-title').textContent=licName+' License — $'+price;
   q('modal-sub').textContent='"'+beatTitle+'" — Pay $'+price+' via PayPal. Todi confirms receipt and your download unlocks.';
   // Build PayPal.me link button
-  q('modal-paypal-btn').innerHTML='<a href="https://paypal.me/oluwatodimu0/'+price+'" target="_blank" rel="noopener" onclick="confirmLicRequest()" style="text-decoration:none;"><button class="btn btn-gold" style="width:100%;justify-content:center;">Pay $'+price+' via PayPal →</button></a>';
+  q('modal-paypal-btn').innerHTML='';
+  const payBtn=document.createElement('button');
+  payBtn.className='btn btn-gold';
+  payBtn.style.cssText='width:100%;justify-content:center;';
+  payBtn.textContent='Pay $'+price+' via PayPal →';
+  payBtn.addEventListener('click',function(){
+    confirmLicRequest();
+    window.open('https://paypal.me/oluwatodimu0/'+price,'_blank');
+  });
+  q('modal-paypal-btn').appendChild(payBtn);
   q('lic-modal').classList.add('open');
 }
 function closeModal(){q('lic-modal').classList.remove('open');modalContext=null;}
