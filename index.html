@@ -2134,6 +2134,17 @@ function flash(bannerId,msgId,msg){
 }
 function q(id){return document.getElementById(id);}
 
+// ── CLEAR SEARCH AUTOFILL ──
+// Chrome ignores autocomplete=off so we clear it manually on load and focus
+document.addEventListener('DOMContentLoaded', function(){
+  const s=document.getElementById('home-search-input');
+  if(s){
+    s.value='';
+    s.addEventListener('focus',function(){if(s.value&&!s.dataset.usertyped)s.value='';});
+    s.addEventListener('input',function(){s.dataset.usertyped='1';});
+  }
+});
+
 // ── AUDIO MANAGER — stop all other players when one starts ──
 document.addEventListener('play', function(e){
   document.querySelectorAll('audio').forEach(function(a){
