@@ -698,9 +698,23 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
     <div class="banner b-gold" id="up-banner"><p id="up-msg"></p></div>
   </div>
   <div class="ipage" id="ipage-adm-lic">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <input class="inp" id="adm-lic-search" placeholder="Search artist, beat..." oninput="renderAdmLic()" style="flex:1;min-width:140px;" />
+      <select class="inp" id="adm-lic-sort" onchange="renderAdmLic()" style="width:auto;">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+    </div>
     <div id="adm-lic-list"><p class="empty">No license requests yet.</p></div>
   </div>
   <div class="ipage" id="ipage-adm-custom">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <input class="inp" id="adm-custom-search" placeholder="Search artist, genre..." oninput="renderAdmCustom()" style="flex:1;min-width:140px;" />
+      <select class="inp" id="adm-custom-sort" onchange="renderAdmCustom()" style="width:auto;">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+    </div>
     <div id="adm-custom-list"><p class="empty">No custom beat requests yet.</p></div>
   </div>
 </div>
@@ -2351,19 +2365,73 @@ function renderArtistList(g){
 function renderAdmLic(){
   const el=q('adm-lic-list');
   if(!licRequests.length){el.innerHTML='<p class="empty">No license requests yet.</p>';return;}
-  el.innerHTML=licRequests.map(r=>`
-    <div class="req-card">
-      <div class="req-top"><div class="icol">
-        <span class="rt">${artists.find(a=>a.id===r.artist_id)?.name||'Unknown'} <span class="badge b${r.status}">${r.status.replace(/_/g,' ')}</span></span>
-        <span class="rs" style="color:var(--text3);">${artists.find(a=>a.id===r.artist_id)?.email||''}</span>
-        <span class="rs">"${r.beat_title}" — ${r.lic_name} license ($${r.price}) via ${r.method}</span>
-      </div></div>
-      <div class="req-actions">
-        ${r.status==='pending'?`<button class="btn btn-green btn-sm" onclick="confirmPayment('${r.id}')">✓ Confirm payment</button><button class="btn btn-red btn-sm" onclick="rejectLicReq('${r.id}')">✕ Reject</button>`:''}
-        ${r.status==='payment_confirmed'?`<span style="font-size:12px;color:var(--green);">✓ Payment confirmed — download unlocked</span>`:''}
-        ${r.status==='rejected'?`<span style="font-size:12px;color:var(--red);">Rejected</span>`:''}
-      </div>
-    </div>`).join('');
+
+  const search=(q('adm-lic-search')?.value||'').toLowerCase();
+  const sort=q('adm-lic-sort')?.value||'desc';
+
+  let reqs=[...licRequests];
+  if(search)reqs=reqs.filter(r=>{
+    const artist=artists.find(a=>a.id===r.artist_id);
+    return r.beat_title.toLowerCase().includes(search)||
+      r.lic_name.toLowerCase().includes(search)||
+      (artist?.name||'').toLowerCase().includes(search)||
+      (artist?.email||'').toLowerCase().includes(search);
+  });
+  reqs.sort(function(a,b){
+    const da=new Date(a.created_at||0),db=new Date(b.created_at||0);
+    return sort==='asc'?da-db:db-da;
+  });
+
+  if(!reqs.length){el.innerHTML='<p class="empty">No results found.</p>';return;}
+
+  const groups=[
+    {key:'pending',label:'Pending',items:[]},
+    {key:'payment_confirmed',label:'Confirmed',items:[]},
+    {key:'rejected',label:'Rejected',items:[]},
+  ];
+  reqs.forEach(function(r){
+    const g=groups.find(g=>g.key===r.status)||groups[0];
+    g.items.push(r);
+  });
+
+  el.innerHTML='';
+  groups.forEach(function(g){
+    if(!g.items.length)return;
+    const section=document.createElement('div');section.style.marginBottom='20px';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--border);';
+    hdr.textContent=g.label+' ('+g.items.length+')';
+    section.appendChild(hdr);
+    g.items.forEach(function(r){
+      const artist=artists.find(a=>a.id===r.artist_id);
+      const date=r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+      const card=document.createElement('div');card.className='req-card';
+      const top=document.createElement('div');top.className='req-top';
+      const col=document.createElement('div');col.className='icol';
+      col.innerHTML=
+        '<span class="rt">'+(artist?.name||'Unknown')+' <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
+        '<span class="rs" style="color:var(--text3);">'+(artist?.email||'')+'</span>'+
+        '<span class="rs">"'+r.beat_title+'" — '+r.lic_name+' license ($'+r.price+') via '+r.method+'</span>'+
+        (date?'<span class="rs" style="color:var(--text3);">'+date+'</span>':'');
+      top.appendChild(col);card.appendChild(top);
+      const actions=document.createElement('div');actions.className='req-actions';
+      if(r.status==='pending'){
+        const confirmBtn=document.createElement('button');confirmBtn.className='btn btn-green btn-sm';confirmBtn.textContent='✓ Confirm payment';
+        confirmBtn.addEventListener('click',function(){confirmPayment(r.id);});
+        const rejectBtn=document.createElement('button');rejectBtn.className='btn btn-red btn-sm';rejectBtn.textContent='✕ Reject';
+        rejectBtn.addEventListener('click',function(){rejectLicReq(r.id);});
+        actions.appendChild(confirmBtn);actions.appendChild(rejectBtn);
+      } else if(r.status==='payment_confirmed'){
+        const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--green);';
+        span.textContent='✓ Payment confirmed — download unlocked';actions.appendChild(span);
+      } else if(r.status==='rejected'){
+        const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--red);';
+        span.textContent='Rejected';actions.appendChild(span);
+      }
+      card.appendChild(actions);section.appendChild(card);
+    });
+    el.appendChild(section);
+  });
 }
 async function confirmPayment(id){
   await sb.from('license_requests').update({status:'payment_confirmed'}).eq('id',id);
@@ -2375,66 +2443,102 @@ async function rejectLicReq(id){await sb.from('license_requests').update({status
 function renderAdmCustom(){
   const el=q('adm-custom-list');
   if(!customRequests.length){el.innerHTML='<p class="empty">No custom beat requests yet.</p>';return;}
+
+  const search=(q('adm-custom-search')?.value||'').toLowerCase();
+  const sort=q('adm-custom-sort')?.value||'desc';
+
+  let reqs=[...customRequests];
+  if(search)reqs=reqs.filter(r=>
+    r.artist_name.toLowerCase().includes(search)||
+    r.genre.toLowerCase().includes(search)||
+    (r.description||'').toLowerCase().includes(search)||
+    (artists.find(a=>a.id===r.artist_id)?.email||'').toLowerCase().includes(search)
+  );
+  reqs.sort(function(a,b){
+    const da=new Date(a.created_at||0),db=new Date(b.created_at||0);
+    return sort==='asc'?da-db:db-da;
+  });
+
+  if(!reqs.length){el.innerHTML='<p class="empty">No results found.</p>';return;}
+
+  const groups=[
+    {keys:['submitted','reviewing'],label:'Under review',items:[]},
+    {keys:['quoted'],label:'Awaiting deposit',items:[]},
+    {keys:['deposit_received','in_production'],label:'In production',items:[]},
+    {keys:['completed'],label:'Completed',items:[]},
+    {keys:['rejected'],label:'Rejected',items:[]},
+  ];
+  reqs.forEach(function(r){
+    const g=groups.find(g=>g.keys.includes(r.status));
+    if(g)g.items.push(r);
+  });
+
   el.innerHTML='';
-  customRequests.forEach(function(r){
-    const card=document.createElement('div');card.className='req-card';
-    const top=document.createElement('div');top.className='req-top';
-    const col=document.createElement('div');col.className='icol';
-    col.innerHTML=
-      '<span class="rt">'+r.artist_name+' — '+r.genre+' beat <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
-        '<span class="rs" style="color:var(--text3);">'+(artists.find(a=>a.id===r.artist_id)?.email||'')+'</span>'+
-      '<span class="rs">'+(r.mood?r.mood+' · ':'')+(r.bpm?r.bpm+' BPM · ':'')+r.description+'</span>'+
-      (r.license_type?'<span class="rs" style="color:var(--text2);">License: '+r.license_type.charAt(0).toUpperCase()+r.license_type.slice(1)+' — '+(r.license_cost||'')+'</span>':'')+
-      (r.ref_link?'<span class="rs" style="color:var(--blue);">🔗 <a href="'+r.ref_link+'" target="_blank" style="color:var(--blue);">'+r.ref_link+'</a></span>':'')+
-      (r.agreed_price?'<span class="rs" style="color:var(--gold);">💰 Agreed: $'+r.agreed_price+' | Deposit: $'+Math.ceil(r.agreed_price/2)+' — '+(r.deposit?'✓ Received':'Pending')+' | Final: '+(r.final_paid?'✓ Received':'Pending')+'</span>':'');
-    top.appendChild(col);card.appendChild(top);
-
-    const actions=document.createElement('div');actions.className='req-actions';
-
-    if(r.status==='submitted'||r.status==='reviewing'){
-      const inp=document.createElement('input');inp.className='inp';inp.id='price-'+r.id;
-      inp.placeholder='Set agreed price $';inp.style.width='160px';inp.type='number';
-      const acceptBtn=document.createElement('button');acceptBtn.className='btn btn-gold btn-sm';acceptBtn.textContent='Accept & set price';
-      acceptBtn.addEventListener('click',function(){setCustomPrice(r.id);});
-      const rejectBtn=document.createElement('button');rejectBtn.className='btn btn-red btn-sm';rejectBtn.textContent='Reject';
-      rejectBtn.addEventListener('click',function(){rejectCustom(r.id);});
-      actions.appendChild(inp);actions.appendChild(acceptBtn);actions.appendChild(rejectBtn);
-    } else if(r.status==='quoted'&&!r.deposit){
-      const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--text3);';
-      span.textContent='Waiting for 50% deposit ($'+Math.ceil(r.agreed_price/2)+')';
-      const btn=document.createElement('button');btn.className='btn btn-green btn-sm';btn.textContent='✓ Deposit received — start production';
-      btn.addEventListener('click',function(){markDeposit(r.id);});
-      actions.appendChild(span);actions.appendChild(btn);
-    } else if(r.status==='in_production'||r.status==='deposit_received'){
-      const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--blue);';
-      span.textContent='In production — final payment ($'+Math.floor(r.agreed_price/2)+') pending';
-      const btn=document.createElement('button');btn.className='btn btn-green btn-sm';btn.textContent='✓ Final payment received — deliver beat';
-      btn.addEventListener('click',function(){markComplete(r.id);});
-      actions.appendChild(span);actions.appendChild(btn);
-    } else if(r.status==='completed'){
-      const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--green);';
-      span.textContent='✓ Final payment confirmed';
-      actions.appendChild(span);
-      if(r.delivery_url){
-        const delivered=document.createElement('span');delivered.style.cssText='font-size:12px;color:var(--green);';
-        delivered.textContent='✓ Beat delivered to artist';
-        actions.appendChild(delivered);
-      } else {
-        const uploadBtn=document.createElement('button');uploadBtn.className='btn btn-gold btn-sm';
-        uploadBtn.id='deliver-btn-'+r.id;uploadBtn.textContent='Upload beat file for artist';
-        uploadBtn.addEventListener('click',function(){uploadDelivery(r.id);});
-        actions.appendChild(uploadBtn);
+  groups.forEach(function(g){
+    if(!g.items.length)return;
+    const section=document.createElement('div');section.style.marginBottom='24px';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--border);';
+    hdr.textContent=g.label+' ('+g.items.length+')';
+    section.appendChild(hdr);
+    g.items.forEach(function(r){
+      const artist=artists.find(a=>a.id===r.artist_id);
+      const date=r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+      const card=document.createElement('div');card.className='req-card';
+      const top=document.createElement('div');top.className='req-top';
+      const col=document.createElement('div');col.className='icol';
+      col.innerHTML=
+        '<span class="rt">'+r.artist_name+' — '+r.genre+' beat <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
+        '<span class="rs" style="color:var(--text3);">'+(artist?.email||'')+'</span>'+
+        '<span class="rs">'+(r.mood?r.mood+' · ':'')+(r.bpm?r.bpm+' BPM · ':'')+r.description+'</span>'+
+        (r.license_type?'<span class="rs" style="color:var(--text2);">License: '+r.license_type.charAt(0).toUpperCase()+r.license_type.slice(1)+' — '+(r.license_cost||'')+'</span>':'')+
+        (r.ref_link?'<span class="rs" style="color:var(--blue);">🔗 <a href="'+r.ref_link+'" target="_blank" style="color:var(--blue);">'+r.ref_link+'</a></span>':'')+
+        (r.agreed_price?'<span class="rs" style="color:var(--gold);">💰 Agreed: $'+r.agreed_price+' | Deposit: $'+Math.ceil(r.agreed_price/2)+' — '+(r.deposit?'✓ Received':'Pending')+' | Final: '+(r.final_paid?'✓ Received':'Pending')+'</span>':'')+
+        (date?'<span class="rs" style="color:var(--text3);">'+date+'</span>':'');
+      top.appendChild(col);card.appendChild(top);
+      const actions=document.createElement('div');actions.className='req-actions';
+      if(r.status==='submitted'||r.status==='reviewing'){
+        const inp=document.createElement('input');inp.className='inp';inp.id='price-'+r.id;
+        inp.placeholder='Set agreed price $';inp.style.width='160px';inp.type='number';
+        const acceptBtn=document.createElement('button');acceptBtn.className='btn btn-gold btn-sm';acceptBtn.textContent='Accept & set price';
+        acceptBtn.addEventListener('click',function(){setCustomPrice(r.id);});
+        const rejectBtn=document.createElement('button');rejectBtn.className='btn btn-red btn-sm';rejectBtn.textContent='Reject';
+        rejectBtn.addEventListener('click',function(){rejectCustom(r.id);});
+        actions.appendChild(inp);actions.appendChild(acceptBtn);actions.appendChild(rejectBtn);
+      } else if(r.status==='quoted'&&!r.deposit){
+        const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--text3);';
+        span.textContent='Waiting for 50% deposit ($'+Math.ceil(r.agreed_price/2)+')';
+        const btn=document.createElement('button');btn.className='btn btn-green btn-sm';btn.textContent='✓ Deposit received — start production';
+        btn.addEventListener('click',function(){markDeposit(r.id);});
+        actions.appendChild(span);actions.appendChild(btn);
+      } else if(r.status==='in_production'||r.status==='deposit_received'){
+        const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--blue);';
+        span.textContent='In production — final payment ($'+Math.floor(r.agreed_price/2)+') pending';
+        const btn=document.createElement('button');btn.className='btn btn-green btn-sm';btn.textContent='✓ Final payment received — deliver beat';
+        btn.addEventListener('click',function(){markComplete(r.id);});
+        actions.appendChild(span);actions.appendChild(btn);
+      } else if(r.status==='completed'){
+        const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--green);';
+        span.textContent='✓ Final payment confirmed';actions.appendChild(span);
+        if(r.delivery_url){
+          const d=document.createElement('span');d.style.cssText='font-size:12px;color:var(--green);';
+          d.textContent='✓ Beat delivered to artist';actions.appendChild(d);
+        } else {
+          const uploadBtn=document.createElement('button');uploadBtn.className='btn btn-gold btn-sm';
+          uploadBtn.id='deliver-btn-'+r.id;uploadBtn.textContent='Upload beat file for artist';
+          uploadBtn.addEventListener('click',function(){uploadDelivery(r.id);});
+          actions.appendChild(uploadBtn);
+        }
+      } else if(r.status==='rejected'){
+        const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--red);';
+        span.textContent='Rejected';actions.appendChild(span);
       }
-    } else if(r.status==='rejected'){
-      const span=document.createElement('span');span.style.cssText='font-size:12px;color:var(--red);';
-      span.textContent='Rejected';
-      actions.appendChild(span);
-    }
-
-    card.appendChild(actions);
-    el.appendChild(card);
+      card.appendChild(actions);section.appendChild(card);
+    });
+    el.appendChild(section);
   });
 }
+
 
 async function setCustomPrice(id){
   const val=document.getElementById('price-'+id).value;
