@@ -1106,16 +1106,13 @@ async function confirmSelfDelete(){
   btn.textContent='Deleting...';btn.disabled=true;
   const id=currentUser.id;
 
-  // anonymise completed transactions
-  await sb.from('license_requests').update({artist_id:null}).eq('artist_id',id).eq('status','payment_confirmed');
-  await sb.from('custom_requests').update({artist_id:null,artist_name:'[deleted]'}).eq('artist_id',id).eq('status','completed');
-
   // delete pending requests
-  await sb.from('license_requests').delete().eq('artist_id',id);
-  await sb.from('custom_requests').delete().eq('artist_id',id);
+  await sb.from('license_requests').delete().eq('artist_id',id).neq('status','payment_confirmed');
+  await sb.from('custom_requests').delete().eq('artist_id',id).neq('status','completed');
 
-  // delete profile
-  await sb.from('profiles').delete().eq('id',id);
+  // delete profile — FK cascade sets artist_id=null on completed records
+  const {error}=await sb.from('profiles').delete().eq('id',id);
+  if(error){alert('Delete failed: '+error.message);btn.textContent='Yes, delete my account';btn.disabled=false;return;}
 
   // sign out
   await sb.auth.signOut();
@@ -1879,19 +1876,18 @@ async function confirmDeleteArtist(){
   const btn=q('ma-delete-confirm').querySelector('.btn-red');
   btn.textContent='Deleting...';btn.disabled=true;
 
-  // anonymise completed transactions
-  await sb.from('license_requests').update({artist_id:null}).eq('artist_id',artistId).eq('status','payment_confirmed');
-  await sb.from('custom_requests').update({artist_id:null,artist_name:'[deleted]'}).eq('artist_id',artistId).eq('status','completed');
+  // delete pending requests first
+  await sb.from('license_requests').delete().eq('artist_id',artistId).neq('status','payment_confirmed');
+  await sb.from('custom_requests').delete().eq('artist_id',artistId).neq('status','completed');
 
-  // delete pending requests
-  await sb.from('license_requests').delete().eq('artist_id',artistId);
-  await sb.from('custom_requests').delete().eq('artist_id',artistId);
+  // delete profile — FK cascade sets artist_id=null on completed records
+  const {error}=await sb.from('profiles').delete().eq('id',artistId);
+  if(error){
+    alert('Delete failed: '+error.message);
+    btn.textContent='Yes, delete permanently';btn.disabled=false;
+    return;
+  }
 
-  // delete profile
-  await sb.from('profiles').delete().eq('id',artistId);
-
-  // delete auth user via admin API (requires service role — handled via edge function if needed)
-  // for now remove from local list and close
   artists=artists.filter(a=>a.id!==artistId);
   closeManageArtist();
   await updateAdmin();
