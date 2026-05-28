@@ -491,16 +491,12 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
     </div>
   </div>
   <div class="itabs">
-    <button class="itab active" onclick="showITab('d-beats',event)">Beats</button>
-    <button class="itab" onclick="showITab('d-licenses',event)" id="tab-licenses" style="display:none;">License requests</button>
-    <button class="itab" onclick="showITab('d-custom',event)" id="tab-custom" style="display:none;">Custom beats</button>
+    <button class="itab active" onclick="showITab('d-licenses',event)" id="tab-licenses">License requests</button>
+    <button class="itab" onclick="showITab('d-custom',event)" id="tab-custom">Custom beats</button>
     <button class="itab" onclick="showITab('d-history',event)">History</button>
     <button class="itab" onclick="showITab('d-account',event)">Account</button>
   </div>
-  <div class="ipage active" id="ipage-d-beats">
-    <div class="frow" id="dash-genre-filters" style="margin-bottom:12px;"></div>
-    <div id="dash-beats-list"><p class="empty">No beats yet.</p></div>
-  </div>
+
   <div class="ipage" id="ipage-d-licenses">
     <div id="dash-lic-list"><p class="empty">No license requests yet.</p></div>
   </div>
@@ -1006,16 +1002,22 @@ async function showDashboard(){
   q('acc-email').textContent=currentUser.email;
   q('acc-plan').innerHTML=`<span class="badge ${isPro?'bp':'bf'}">${isPro?'Pro':'Free'}</span>`;
   q('acc-genres').innerHTML=(currentUser.genres||[]).map(g=>`<span class="mtag">${g}</span>`).join('');
-  q('tab-licenses').style.display=isPro?'':'none';
-  q('tab-custom').style.display='';  // available to all users
   q('upgrade-btn-wrap').style.display=isPro?'none':'block';
   await loadBeats();
-  renderDashBeats();
   await loadUserRequests();
-  if(isPro)renderDashLic();
+  renderDashLic();
   renderMyCustom();
   renderDashHistory();
-  document.querySelector('#page-dashboard .itab.active').click();
+  // make license requests the default active tab
+  const firstTab=document.querySelector('#page-dashboard .itab');
+  if(firstTab){
+    document.querySelectorAll('#page-dashboard .itab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('#page-dashboard .ipage').forEach(p=>p.classList.remove('active'));
+    firstTab.classList.add('active');
+    const firstPageId='ipage-'+firstTab.getAttribute('onclick').match(/'([^']+)'/)[1];
+    const firstPage=document.getElementById(firstPageId);
+    if(firstPage)firstPage.classList.add('active');
+  }
 }
 
 function renderDashHistory(){
