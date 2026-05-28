@@ -1078,7 +1078,7 @@ async function showDashboard(){
   q('upgrade-btn-wrap').style.display=isPro?'none':'block';
   await loadBeats();
   await loadUserRequests();
-  renderDashDownloads();
+  await renderDashDownloads();
   renderDashLic();
   renderMyCustom();
   renderDashHistory();
@@ -1091,79 +1091,57 @@ async function showDashboard(){
   if(dlPage){dlPage.classList.add('active');}
 }
 
-function renderDashDownloads(){
+async function renderDashDownloads(){
   const el=q('dash-downloads-list');
   if(!currentUser||!el)return;
-  const isPro=currentUser.plan==='paid'||currentUser.id===ADMIN_ID;
-  const PRO_PRICES={Basic:0,Premium:100,Exclusive:500};
-  const items=[];
+  el.innerHTML='<p class="loading">Loading...</p>';
 
-  // free beats — all users
-  beats.forEach(function(b){
-    (b.licenses||[]).forEach(function(l,li){
-      if(isFree(l)){
-        items.push({beat:b,licIndex:li,licName:l.name,type:'free',date:b.created_at});
-      }
-    });
-  });
+  // fetch actual downloads from DB
+  const {data:dlData}=await sb.from('downloads').select('*').eq('artist_id',currentUser.id).order('created_at',{ascending:false});
+  const downloads=dlData||[];
 
-  // pro Basic licenses — free for pro
-  if(isPro){
-    beats.forEach(function(b){
-      (b.licenses||[]).forEach(function(l,li){
-        if(!isFree(l)&&PRO_PRICES[l.name]===0){
-          items.push({beat:b,licIndex:li,licName:l.name,type:'pro',date:b.created_at});
-        }
-      });
-    });
-  }
+  // also include custom beat deliveries
+  const customDeliveries=customRequests.filter(r=>r.status==='completed'&&r.delivery_url);
 
-  // confirmed paid licenses
-  licRequests.filter(r=>r.status==='payment_confirmed').forEach(function(r){
-    const beat=beats.find(b=>b.id===r.beat_id);
-    if(beat){
-      const li=(beat.licenses||[]).findIndex(l=>l.name===r.lic_name);
-      items.push({beat,licIndex:li>=0?li:0,licName:r.lic_name,type:'paid',price:r.price,date:r.created_at});
-    }
-  });
-
-  // custom beat deliveries
-  customRequests.filter(r=>r.status==='completed'&&r.delivery_url).forEach(function(r){
-    items.push({beat:null,licName:r.license_type,type:'custom',deliveryUrl:r.delivery_url,genre:r.genre,date:r.created_at});
-  });
-
-  if(!items.length){
-    el.innerHTML='<p class="empty">No downloads yet. Browse beats on the home page to purchase or download.</p>';
+  if(!downloads.length&&!customDeliveries.length){
+    el.innerHTML='<p class="empty">No downloads yet. Browse beats on the home page to download or purchase.</p>';
     return;
   }
 
-  // sort newest first
-  items.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
-
   el.innerHTML='';
-  items.forEach(function(item){
-    const card=document.createElement('div');card.className='req-card';
-    const row=document.createElement('div');row.className='req-top';
-    const col=document.createElement('div');col.className='icol';
 
-    if(item.type==='custom'){
-      col.innerHTML='<span class="rt">'+item.genre+' beat <span class="badge bp">Custom</span></span>'
-        +'<span class="rs">'+item.licName+' license — delivered by Todi</span>';
-      row.appendChild(col);card.appendChild(row);
-      const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
-      const btn=document.createElement('button');btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download your beat';
-      btn.addEventListener('click',function(){window.open(item.deliveryUrl,'_blank');});
-      actions.appendChild(btn);card.appendChild(actions);
-    } else {
-      const badge=item.type==='free'?'<span class="badge bf">Free</span>':item.type==='pro'?'<span class="badge bp">Pro</span>':'<span class="badge bpayment_confirmed">Purchased</span>';
-      col.innerHTML='<span class="rt">'+item.beat.title+' '+badge+'</span>'
-        +'<span class="rs">'+item.licName+' license'+(item.price?' — $'+item.price:'')+'</span>';
-      row.appendChild(col);card.appendChild(row);
-      const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
-      const btn=document.createElement('button');btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download';
-      btn.addEventListener('click',function(){downloadBeat(item.beat.id,item.licIndex,item.licName,btn);});
-      actions.appendChild(btn);card.appendChild(actions);
-    }
+  // render downloads
+  downloads.forEach(function(d){
+    const beat=beats.find(b=>b.id===d.beat_id);
+    const card=document.createElement('div');card.className='req-card';
+    const date=d.created_at?new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+    card.innerHTML='<div class="req-top"><div class="icol">'
+      +'<span class="rt">'+(beat?beat.title:d.beat_title)+' <span class="badge bf">'+d.lic_name+'</span></span>'
+      +'<span class="rs" style="color:var(--text3);">Downloaded '+date+'</span>'
+      +'</div></div>';
+    const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
+    const btn=document.createElement('button');btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download again';
+    btn.addEventListener('click',function(){
+      if(beat&&beat.file_path){downloadBeat(beat.id,0,d.lic_name,btn);}
+      else{alert('File no longer available.');}
+    });
+    actions.appendChild(btn);card.appendChild(actions);
+    el.appendChild(card);
+  });
+
+  // render custom deliveries
+  customDeliveries.forEach(function(r){
+    const card=document.createElement('div');card.className='req-card';
+    const date=r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+    card.innerHTML='<div class="req-top"><div class="icol">'
+      +'<span class="rt">'+r.genre+' beat <span class="badge bp">Custom</span></span>'
+      +'<span class="rs">'+( r.license_type||'')+ ' license — delivered by Todi</span>'
+      +'<span class="rs" style="color:var(--text3);">'+date+'</span>'
+      +'</div></div>';
+    const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
+    const btn=document.createElement('button');btn.className='btn-beat btn-beat-dl';btn.textContent='↓ Download your beat';
+    btn.addEventListener('click',function(){window.open(r.delivery_url,'_blank');});
+    actions.appendChild(btn);card.appendChild(actions);
     el.appendChild(card);
   });
 }
@@ -1558,6 +1536,17 @@ function renderGenreGrid(){
   allCard.addEventListener('click',function(){openGenreView('All Beats', beats);});
   grid.appendChild(allCard);
 
+  // Free Beats card
+  const freeBeats=beats.filter(function(b){return (b.licenses||[]).some(function(l){return isFree(l);});});
+  if(freeBeats.length){
+    const freeCard=document.createElement('div');
+    freeCard.className='genre-card';
+    freeCard.style.background='linear-gradient(135deg, #0a1500 0%, #2d7a2d44 100%)';
+    freeCard.innerHTML='<div class="genre-card-name" style="color:var(--green);">Free Beats</div><div class="genre-card-count">'+freeBeats.length+' free beat'+(freeBeats.length!==1?'s':'')+'</div>';
+    freeCard.addEventListener('click',function(){openGenreView('Free Beats', freeBeats);});
+    grid.appendChild(freeCard);
+  }
+
   // Genre cards
   genres.forEach(function(g){
     const bts=genreMap[g];
@@ -1578,13 +1567,15 @@ function renderGenreGrid(){
 
 let currentGenreBeats=[];
 
-function openGenreView(genreName, beatList){
+async function openGenreView(genreName, beatList){
   currentGenreBeats=beatList;
   q('home-genre-grid').style.display='none';
   q('home-search-results').style.display='none';
   q('home-genre-view').style.display='';
   q('genre-view-title').textContent=genreName;
   q('genre-view-count').textContent=beatList.length+' beat'+(beatList.length!==1?'s':'');
+  // ensure user requests loaded so payment/download buttons are accurate
+  if(currentUser&&!licRequests.length)await loadUserRequests();
   renderBeatListInto(q('home-beats'), beatList);
 }
 
@@ -1596,7 +1587,7 @@ function showGenreGrid(){
   q('search-clear-btn').classList.remove('show');
 }
 
-function handleSearch(val){
+async function handleSearch(val){
   const clear=q('search-clear-btn');
   if(val.trim()){
     clear.classList.add('show');
@@ -1608,6 +1599,7 @@ function handleSearch(val){
     q('home-genre-view').style.display='none';
     q('home-search-results').style.display='';
     q('search-result-count').textContent=results.length+' result'+(results.length!==1?'s':'');
+    if(currentUser&&!licRequests.length)await loadUserRequests();
     renderBeatListInto(q('home-search-beats'), results);
   } else {
     clearSearch();
@@ -1803,6 +1795,8 @@ async function downloadBeat(beatId,licIndex,licName,btnEl){
   if(!currentUser)return;
   const beat=beats.find(b=>b.id===beatId);
   if(!beat||!beat.file_path){alert('No file available for this beat yet.');return;}
+  // log the download
+  sb.from('downloads').insert({artist_id:currentUser.id,beat_id:beatId,beat_title:beat.title,lic_name:licName}).then();
 
   // find the button that was clicked and show downloading state
   const btn=btnEl||(event&&event.currentTarget)||null;
@@ -2011,18 +2005,18 @@ function openManageArtist(id){
        <span style="font-size:12px;color:var(--green);align-self:center;">✓ Currently on Pro</span>`
     :`<button class="btn btn-gold btn-sm" onclick="setArtistPlan('${a.id}','paid')">Upgrade to Pro</button>
        <span style="font-size:12px;color:var(--text3);align-self:center;">Currently on Free</span>`;
-  // show download history
-  const artistLicReqs=licRequests.filter(r=>r.artist_id===a.id&&r.status==='payment_confirmed');
-  const artistCustom=customRequests.filter(r=>r.artist_id===a.id&&r.status==='completed');
+  // fetch and show download history from DB
   const maHistory=q('ma-history');
   if(maHistory){
-    if(!artistLicReqs.length&&!artistCustom.length){
-      maHistory.innerHTML='<p class="empty" style="font-size:12px;">No purchases yet.</p>';
-    } else {
-      maHistory.innerHTML=
-        artistLicReqs.map(r=>'<div class="rs" style="padding:4px 0;border-bottom:0.5px solid var(--border);">'+r.beat_title+' — '+r.lic_name+' ($'+r.price+')</div>').join('')+
-        artistCustom.map(r=>'<div class="rs" style="padding:4px 0;border-bottom:0.5px solid var(--border);">Custom: '+r.genre+' beat — '+r.license_type+'</div>').join('');
-    }
+    maHistory.innerHTML='<p class="empty" style="font-size:12px;">Loading...</p>';
+    sb.from('downloads').select('*').eq('artist_id',a.id).order('created_at',{ascending:false}).then(function(res){
+      const dls=res.data||[];
+      if(!dls.length){maHistory.innerHTML='<p class="empty" style="font-size:12px;">No downloads yet.</p>';return;}
+      maHistory.innerHTML=dls.map(function(d){
+        const date=d.created_at?new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+        return '<div class="rs" style="padding:4px 0;border-bottom:0.5px solid var(--border);">'+d.beat_title+' — '+d.lic_name+' <span style="color:var(--text3);float:right;">'+date+'</span></div>';
+      }).join('');
+    });
   }
   q('manage-artist-modal').classList.add('open');
 }
