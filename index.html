@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>1Drops</title>
+<title>1Drops — prod1todi</title>
 <meta name="description" content="Browse, preview and license beats from Todi. Free and Pro plans available." />
 
 <!-- Open Graph (Facebook, WhatsApp, Discord) -->
@@ -520,9 +520,23 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
     <div id="dash-downloads-list"><p class="empty">Loading...</p></div>
   </div>
   <div class="ipage" id="ipage-d-licenses">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <input class="inp" id="lic-search" placeholder="Search beats..." oninput="renderDashLic()" style="flex:1;min-width:140px;" />
+      <select class="inp" id="lic-sort" onchange="renderDashLic()" style="width:auto;">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+    </div>
     <div id="dash-lic-list"><p class="empty">No license requests yet.</p></div>
   </div>
   <div class="ipage" id="ipage-d-custom">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <input class="inp" id="custom-search" placeholder="Search genre, description..." oninput="renderMyCustom()" style="flex:1;min-width:140px;" />
+      <select class="inp" id="custom-sort" onchange="renderMyCustom()" style="width:auto;">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+    </div>
     <div class="card">
       <div class="card-title">Request a custom beat</div>
       <div class="card-sub">Tell Todi what you need. Once agreed on a price, a 50% deposit is required before production starts.</div>
@@ -1853,46 +1867,86 @@ async function confirmLicRequest(){
   const {error}=await sb.from('license_requests').insert(r);
   if(error){console.warn('License request error:',error.message);return;}
   licRequests.push(r);
-  renderDashBeats();renderDashLic();
+  // only re-render dashboard if it's currently active
+  const dashActive=document.getElementById('page-dashboard')?.classList.contains('active');
+  if(dashActive){renderDashLic();}
+  // re-render beat list wherever it's showing
+  const homeView=q('home-genre-view');
+  const homeSearch=q('home-search-results');
+  if(homeView&&homeView.style.display!=='none')renderBeatListInto(q('home-beats'),currentGenreBeats);
+  if(homeSearch&&homeSearch.style.display!=='none')handleSearch(q('home-search-input').value);
   notifyAdmin('license_request',{...r,artist_name:currentUser.name});
   flash('su-banner','su-msg','Payment sent! Todi will confirm and your download will unlock.');
 }
 function renderDashLic(){
   const el=q('dash-lic-list');
-  if(!currentUser){el.innerHTML='<p class="empty">Not logged in.</p>';return;}
-  if(!licRequests.length){el.innerHTML='<p class="empty">No license requests yet. Go to Beats tab to request a license.</p>';return;}
+  if(!currentUser||!el)return;
+  if(!licRequests.length){el.innerHTML='<p class="empty">No license requests yet. Browse beats on the home page to purchase a license.</p>';return;}
+
+  const search=(q('lic-search')?.value||'').toLowerCase();
+  const sort=q('lic-sort')?.value||'desc';
+
+  let reqs=[...licRequests];
+  if(search)reqs=reqs.filter(r=>r.beat_title.toLowerCase().includes(search)||r.lic_name.toLowerCase().includes(search));
+  reqs.sort(function(a,b){
+    const da=new Date(a.created_at||0),db=new Date(b.created_at||0);
+    return sort==='asc'?da-db:db-da;
+  });
+
+  if(!reqs.length){el.innerHTML='<p class="empty">No results found.</p>';return;}
+
+  // group by status
+  const groups=[
+    {key:'pending',label:'Pending',items:[]},
+    {key:'payment_confirmed',label:'Confirmed',items:[]},
+    {key:'rejected',label:'Declined',items:[]},
+  ];
+  reqs.forEach(function(r){
+    const g=groups.find(g=>g.key===r.status)||groups[0];
+    g.items.push(r);
+  });
+
   el.innerHTML='';
-  licRequests.forEach(function(r){
-    const card=document.createElement('div');card.className='req-card';
-    const top=document.createElement('div');top.className='req-top';
-    const col=document.createElement('div');col.className='icol';
-    col.innerHTML=
-      '<span class="rt">'+r.beat_title+' <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
-      '<span class="rs">'+r.lic_name+' license — $'+r.price+' · '+r.method+'</span>'+
-      (r.status==='pending'?'<span class="rs" style="color:var(--text3);margin-top:3px;">Waiting for Todi to confirm your payment</span>':'')+
-      (r.status==='rejected'?'<span class="rs" style="color:var(--red);margin-top:3px;">Request declined</span>':'');
-    top.appendChild(col);card.appendChild(top);
+  groups.forEach(function(g){
+    if(!g.items.length)return;
+    const section=document.createElement('div');section.style.marginBottom='20px';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--border);';
+    hdr.textContent=g.label+' ('+g.items.length+')';
+    section.appendChild(hdr);
 
-    if(r.status==='payment_confirmed'){
-      const confirmed=document.createElement('span');
-      confirmed.className='rs';confirmed.style.cssText='color:var(--green);margin-top:3px;display:block;';
-      confirmed.textContent='✓ Payment confirmed';
-      col.appendChild(confirmed);
-      // find the beat and show download button
-      const beat=beats.find(b=>b.id===r.beat_id);
-      if(beat&&beat.file_path){
-        const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
-        const dlBtn=document.createElement('button');dlBtn.className='btn-beat btn-beat-dl';
-        dlBtn.textContent='↓ Download '+r.lic_name;
-        dlBtn.addEventListener('click',function(){downloadBeat(beat.id,0,r.lic_name,this);});
-        actions.appendChild(dlBtn);
-        card.appendChild(actions);
+    g.items.forEach(function(r){
+      const card=document.createElement('div');card.className='req-card';
+      const top=document.createElement('div');top.className='req-top';
+      const col=document.createElement('div');col.className='icol';
+      const date=r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+      col.innerHTML=
+        '<span class="rt">'+r.beat_title+' <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
+        '<span class="rs">'+r.lic_name+' license — $'+r.price+' · '+r.method+'</span>'+
+        (date?'<span class="rs" style="color:var(--text3);">'+date+'</span>':'')+
+        (r.status==='pending'?'<span class="rs" style="color:var(--text3);margin-top:3px;">Waiting for Todi to confirm your payment</span>':'')+
+        (r.status==='rejected'?'<span class="rs" style="color:var(--red);margin-top:3px;">Request declined</span>':'');
+      top.appendChild(col);card.appendChild(top);
+      if(r.status==='payment_confirmed'){
+        const confirmed=document.createElement('span');
+        confirmed.className='rs';confirmed.style.cssText='color:var(--green);margin-top:3px;display:block;';
+        confirmed.textContent='✓ Payment confirmed';
+        col.appendChild(confirmed);
+        const beat=beats.find(b=>b.id===r.beat_id);
+        if(beat&&beat.file_path){
+          const actions=document.createElement('div');actions.className='req-actions';actions.style.marginTop='10px';
+          const dlBtn=document.createElement('button');dlBtn.className='btn-beat btn-beat-dl';
+          dlBtn.textContent='↓ Download '+r.lic_name;
+          dlBtn.addEventListener('click',function(){downloadBeat(beat.id,0,r.lic_name,this);});
+          actions.appendChild(dlBtn);card.appendChild(actions);
+        }
       }
-    }
-
-    el.appendChild(card);
+      section.appendChild(card);
+    });
+    el.appendChild(section);
   });
 }
+
 
 // ════════════════════════════════════════════
 // CUSTOM BEAT REQUESTS
@@ -1949,47 +2003,116 @@ async function submitCustomRequest(){
 }
 function renderMyCustom(){
   const el=q('my-custom-list');
-  if(!currentUser){el.innerHTML='<p class="empty">Not logged in.</p>';return;}
+  if(!currentUser||!el)return;
   if(!customRequests.length){el.innerHTML='<p class="empty">No custom requests yet. Fill in the form above to get started.</p>';return;}
+
+  const search=(q('custom-search')?.value||'').toLowerCase();
+  const sort=q('custom-sort')?.value||'desc';
+
+  let reqs=[...customRequests];
+  if(search)reqs=reqs.filter(r=>
+    r.genre.toLowerCase().includes(search)||
+    (r.description||'').toLowerCase().includes(search)||
+    (r.mood||'').toLowerCase().includes(search)
+  );
+  reqs.sort(function(a,b){
+    const da=new Date(a.created_at||0),db=new Date(b.created_at||0);
+    return sort==='asc'?da-db:db-da;
+  });
+
+  if(!reqs.length){el.innerHTML='<p class="empty">No results found.</p>';return;}
+
   const STEPS=['Submitted','Deposit paid','In production','Complete'];
   const STATUS_STEP={submitted:0,reviewing:0,quoted:0,deposit_received:1,in_production:2,completed:3,rejected:-1};
-  el.innerHTML=customRequests.map(r=>{
-    const step=STATUS_STEP[r.status]??0;const rejected=r.status==='rejected';
-    return `<div class="req-card">
-      <div class="req-top"><div class="icol">
-        <span class="rt">${r.genre} beat <span class="badge b${r.status}">${r.status.replace(/_/g,' ')}</span></span>
-        <span class="rs">${r.mood?r.mood+' · ':''}${r.bpm?r.bpm+' BPM · ':''}${r.description.slice(0,80)}${r.description.length>80?'...':''}</span>
-        ${r.license_type?`<span class="rs" style="color:var(--text2);margin-top:2px;">License: ${r.license_type.charAt(0).toUpperCase()+r.license_type.slice(1)} — ${r.license_cost||''}</span>`:''}
-        ${r.agreed_price?`<span class="rs" style="color:var(--gold);margin-top:3px;">💰 Agreed: $${r.agreed_price} — Deposit: $${Math.ceil(r.agreed_price/2)}</span>`:''}
-        ${r.deposit&&!r.final_paid?`<span class="rs" style="color:var(--blue);margin-top:3px;">🎧 In production — final payment ($${Math.floor(r.agreed_price/2)}) due on delivery</span>`:''}
-        ${r.status==='completed'?`<span class="rs" style="color:var(--green);margin-top:3px;">✓ Beat delivered</span>`:''}
-        ${rejected?`<span class="rs" style="color:var(--red);margin-top:3px;">Request was declined</span>`:''}
-      </div></div>
-      ${(()=>{
-        const isProBasic=currentUser&&currentUser.plan==='paid'&&r.license_type==='basic';
-        if(r.status==='quoted'&&!r.deposit){
-          if(isProBasic){
-            return '<div class="req-actions"><span style="font-size:12px;color:var(--text3);">Waiting for Todi to confirm the project and start production.</span></div>';
-          }
-          return '<div class="req-actions" style="flex-direction:column;align-items:flex-start;gap:10px;"><span style="font-size:12px;color:var(--gold);">💰 Deposit due: <strong>$'+Math.ceil(r.agreed_price/2)+'</strong> — pay via PayPal to begin production.</span><button class="btn btn-gold btn-sm" onclick="notifyAdmin(\'deposit_sent\',{artist_name:currentUser.name,genre:\''+r.genre+'\',amount:'+Math.ceil(r.agreed_price/2)+',type:\'deposit\'});window.open(\'https://paypal.me/oluwatodimu0/'+Math.ceil(r.agreed_price/2)+'\',\'_blank\');">Pay $'+Math.ceil(r.agreed_price/2)+' deposit via PayPal →</button><span style="font-size:11px;color:var(--text3);">After paying, Todi will confirm receipt and start production.</span></div>';
+
+  const groups=[
+    {keys:['submitted','reviewing'],label:'Under review',items:[]},
+    {keys:['quoted'],label:'Awaiting deposit',items:[]},
+    {keys:['deposit_received','in_production'],label:'In production',items:[]},
+    {keys:['completed'],label:'Completed',items:[]},
+    {keys:['rejected'],label:'Declined',items:[]},
+  ];
+
+  reqs.forEach(function(r){
+    const g=groups.find(g=>g.keys.includes(r.status));
+    if(g)g.items.push(r);
+  });
+
+  el.innerHTML='';
+  groups.forEach(function(g){
+    if(!g.items.length)return;
+    const section=document.createElement('div');section.style.marginBottom='24px';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--border);';
+    hdr.textContent=g.label+' ('+g.items.length+')';
+    section.appendChild(hdr);
+
+    g.items.forEach(function(r){
+      const step=STATUS_STEP[r.status]??0;
+      const rejected=r.status==='rejected';
+      const isProBasic=currentUser.plan==='paid'&&r.license_type==='basic';
+      const date=r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+
+      const card=document.createElement('div');card.className='req-card';
+      card.innerHTML=
+        '<div class="req-top"><div class="icol">'+
+        '<span class="rt">'+r.genre+' beat <span class="badge b'+r.status+'">'+r.status.replace(/_/g,' ')+'</span></span>'+
+        '<span class="rs">'+(r.mood?r.mood+' · ':'')+( r.bpm?r.bpm+' BPM · ':'')+r.description.slice(0,80)+(r.description.length>80?'...':'')+'</span>'+
+        (r.license_type?'<span class="rs" style="color:var(--text2);margin-top:2px;">License: '+r.license_type.charAt(0).toUpperCase()+r.license_type.slice(1)+' — '+(r.license_cost||'')+'</span>':'')+
+        (r.agreed_price?'<span class="rs" style="color:var(--gold);margin-top:3px;">💰 Agreed: $'+r.agreed_price+' — Deposit: $'+Math.ceil(r.agreed_price/2)+'</span>':'')+
+        (date?'<span class="rs" style="color:var(--text3);">'+date+'</span>':'')+
+        (rejected?'<span class="rs" style="color:var(--red);margin-top:3px;">Request was declined</span>':'')+
+        '</div></div>';
+
+      // payment actions
+      if(r.status==='quoted'&&!r.deposit){
+        const actions=document.createElement('div');actions.className='req-actions';actions.style.cssText='flex-direction:column;align-items:flex-start;gap:10px;';
+        if(isProBasic){
+          actions.innerHTML='<span style="font-size:12px;color:var(--text3);">Waiting for Todi to confirm the project and start production.</span>';
+        } else {
+          actions.innerHTML='<span style="font-size:12px;color:var(--gold);">💰 Deposit due: <strong>$'+Math.ceil(r.agreed_price/2)+'</strong> — pay via PayPal to begin production.</span>'
+            +'<button class="btn btn-gold btn-sm" onclick="notifyAdmin(\'deposit_sent\',{artist_name:currentUser.name,genre:\''+r.genre+'\',amount:'+Math.ceil(r.agreed_price/2)+',type:\'deposit\'});window.open(\'https://paypal.me/oluwatodimu0/'+Math.ceil(r.agreed_price/2)+'\',\'_blank\');">Pay $'+Math.ceil(r.agreed_price/2)+' deposit via PayPal →</button>'
+            +'<span style="font-size:11px;color:var(--text3);">After paying, Todi will confirm receipt and start production.</span>';
         }
-        if(r.status==='in_production'&&!r.final_paid){
-          if(isProBasic){
-            return '<div class="req-actions"><span style="font-size:12px;color:var(--blue);">🎧 In production — Todi will deliver your beat when complete.</span></div>';
-          }
-          return '<div class="req-actions" style="flex-direction:column;align-items:flex-start;gap:10px;"><span style="font-size:12px;color:var(--blue);">🎧 In production — final payment of <strong>$'+Math.floor(r.agreed_price/2)+'</strong> due on delivery.</span><button class="btn btn-gold btn-sm" onclick="notifyAdmin(\'deposit_sent\',{artist_name:currentUser.name,genre:\''+r.genre+'\',amount:'+Math.floor(r.agreed_price/2)+',type:\'final\'});window.open(\'https://paypal.me/oluwatodimu0/'+Math.floor(r.agreed_price/2)+'\',\'_blank\');">Pay $'+Math.floor(r.agreed_price/2)+' final payment via PayPal →</button><span style="font-size:11px;color:var(--text3);">After paying, Todi will confirm receipt and deliver your beat.</span></div>';
+        card.appendChild(actions);
+      } else if(r.status==='in_production'&&!r.final_paid){
+        const actions=document.createElement('div');actions.className='req-actions';actions.style.cssText='flex-direction:column;align-items:flex-start;gap:10px;';
+        if(isProBasic){
+          actions.innerHTML='<span style="font-size:12px;color:var(--blue);">🎧 In production — Todi will deliver your beat when complete.</span>';
+        } else {
+          actions.innerHTML='<span style="font-size:12px;color:var(--blue);">🎧 In production — final payment of <strong>$'+Math.floor(r.agreed_price/2)+'</strong> due on delivery.</span>'
+            +'<button class="btn btn-gold btn-sm" onclick="notifyAdmin(\'deposit_sent\',{artist_name:currentUser.name,genre:\''+r.genre+'\',amount:'+Math.floor(r.agreed_price/2)+',type:\'final\'});window.open(\'https://paypal.me/oluwatodimu0/'+Math.floor(r.agreed_price/2)+'\',\'_blank\');">Pay $'+Math.floor(r.agreed_price/2)+' final payment via PayPal →</button>'
+            +'<span style="font-size:11px;color:var(--text3);">After paying, Todi will confirm receipt and deliver your beat.</span>';
         }
-        return '';
-      })()}
-      ${r.status==='completed'&&r.delivery_url?`
-        <div class="req-actions" style="flex-direction:column;align-items:flex-start;gap:8px;">
-          <span style="font-size:12px;color:var(--green);">✓ Your beat is ready!</span>
-          <button class="btn btn-beat btn-beat-free" onclick="window.open('${r.delivery_url}','_blank')">↓ Download your beat</button>
-        </div>`:''}
-      ${!rejected?`<div class="steps">${STEPS.map((s,i)=>`<div class="step ${i<step?'done':i===step?'active':''}">${s}</div>`).join('')}</div>`:''}
-    </div>`;
-  }).join('');
+        card.appendChild(actions);
+      }
+
+      // delivery download
+      if(r.status==='completed'&&r.delivery_url){
+        const actions=document.createElement('div');actions.className='req-actions';actions.style.cssText='flex-direction:column;align-items:flex-start;gap:8px;';
+        actions.innerHTML='<span style="font-size:12px;color:var(--green);">✓ Your beat is ready!</span>';
+        const dlBtn=document.createElement('button');dlBtn.className='btn btn-beat btn-beat-free';dlBtn.textContent='↓ Download your beat';
+        dlBtn.addEventListener('click',function(){window.open(r.delivery_url,'_blank');});
+        actions.appendChild(dlBtn);card.appendChild(actions);
+      }
+
+      // progress steps
+      if(!rejected){
+        const steps=document.createElement('div');steps.className='steps';
+        STEPS.forEach(function(s,i){
+          const st=document.createElement('div');
+          st.className='step '+(i<step?'done':i===step?'active':'');
+          st.textContent=s;steps.appendChild(st);
+        });
+        card.appendChild(steps);
+      }
+
+      section.appendChild(card);
+    });
+    el.appendChild(section);
+  });
 }
+
 
 // ════════════════════════════════════════════
 // MANAGE ARTIST
