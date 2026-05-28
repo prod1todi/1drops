@@ -1114,6 +1114,9 @@ async function confirmSelfDelete(){
   const {error}=await sb.from('profiles').delete().eq('id',id);
   if(error){alert('Delete failed: '+error.message);btn.textContent='Yes, delete my account';btn.disabled=false;return;}
 
+  // delete auth user
+  await sb.functions.invoke('delete-user',{body:{userId:id}});
+
   // sign out
   await sb.auth.signOut();
   currentUser=null;
@@ -1888,6 +1891,9 @@ async function confirmDeleteArtist(){
     return;
   }
 
+  // delete auth user so they can't log back in or recreate profile
+  await sb.functions.invoke('delete-user',{body:{userId:artistId}});
+
   artists=artists.filter(a=>a.id!==artistId);
   closeManageArtist();
   await updateAdmin();
@@ -2262,6 +2268,15 @@ async function restoreSession(){
   let {data:profile,error}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
   if(error){console.error('Profile error:',error.message);return;}
   if(!profile){
+    // only create profile for brand new OAuth users (first login)
+    // if user signed up via email they already have a profile — missing means deleted
+    const isOAuth=session.user.app_metadata?.provider&&session.user.app_metadata.provider!=='email';
+    if(!isOAuth){
+      // email user with no profile = deleted account, sign them out
+      await sb.auth.signOut();
+      setLoggedOutNav();
+      return;
+    }
     const name=session.user.user_metadata?.full_name||session.user.email.split('@')[0];
     const {data:created,error:createErr}=await sb.from('profiles')
       .insert({id:session.user.id,name,email:session.user.email,plan:'free',genres:[]})
