@@ -36,7 +36,69 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ntab{padding:6px 14px;border-radius:var(--radius);font-size:13px;cursor:pointer;border:none;background:transparent;color:var(--text2);transition:all 0.15s;font-family:var(--font-body);font-weight:500;}
 .ntab.active,.ntab:hover{background:var(--bg3);color:#fff;}
 .ntab.gold{color:var(--gold);}
-.content{max-width:740px;margin:0 auto;padding:24px 20px 60px;}
+.content{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+
+/* HAMBURGER */
+.hamburger{display:flex;flex-direction:column;gap:5px;cursor:pointer;padding:8px;border-radius:var(--radius);transition:background 0.15s;}
+.hamburger:hover{background:var(--bg3);}
+.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all 0.2s;}
+
+/* SIDE PANEL */
+.side-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:150;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.side-overlay.open{opacity:1;pointer-events:all;}
+.side-panel{position:fixed;top:0;right:-280px;width:280px;height:100%;background:var(--bg2);border-left:0.5px solid var(--border);z-index:160;transition:right 0.25s cubic-bezier(0.4,0,0.2,1);padding:0;display:flex;flex-direction:column;}
+.side-panel.open{right:0;}
+.side-panel-header{padding:20px 20px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.side-panel-logo{font-family:var(--font-display);font-size:22px;color:#fff;}
+.side-panel-logo span{color:var(--gold);}
+.side-close{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px;line-height:1;}
+.side-close:hover{color:#fff;}
+.side-nav{flex:1;padding:12px 0;overflow-y:auto;}
+.side-item{display:flex;align-items:center;gap:12px;padding:13px 20px;font-size:14px;color:var(--text2);cursor:pointer;transition:all 0.15s;border:none;background:none;width:100%;font-family:var(--font-body);font-weight:500;text-align:left;}
+.side-item:hover{background:var(--bg3);color:#fff;}
+.side-item.active{color:#fff;}
+.side-item-icon{font-size:16px;width:20px;text-align:center;}
+.side-divider{height:0.5px;background:var(--border);margin:8px 20px;}
+.side-user{padding:16px 20px;border-top:0.5px solid var(--border);}
+.side-user-name{font-size:13px;color:#fff;font-weight:600;}
+.side-user-plan{font-size:11px;color:var(--text3);margin-top:2px;}
+
+/* SEARCH BAR */
+.home-search-wrap{padding:28px 0 20px;}
+.home-search-title{font-family:var(--font-display);font-size:48px;letter-spacing:1px;color:#fff;line-height:1;margin-bottom:6px;}
+.home-search-title span{color:var(--gold);}
+.home-search-sub{font-size:13px;color:var(--text3);margin-bottom:20px;}
+.search-bar{position:relative;max-width:520px;}
+.search-bar input{width:100%;padding:12px 16px 12px 44px;border:0.5px solid var(--border);border-radius:999px;font-size:14px;background:var(--bg2);color:var(--text);font-family:var(--font-body);transition:border-color 0.15s;}
+.search-bar input:focus{outline:none;border-color:var(--gold);}
+.search-bar input::placeholder{color:var(--text3);}
+.search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none;}
+.search-clear{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;display:none;}
+.search-clear.show{display:block;}
+
+/* GENRE GRID */
+.genre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+.genre-card{border-radius:var(--radius-lg);padding:20px 16px;cursor:pointer;position:relative;overflow:hidden;border:0.5px solid var(--border);transition:transform 0.15s,border-color 0.15s;min-height:100px;display:flex;flex-direction:column;justify-content:flex-end;}
+.genre-card:hover{transform:translateY(-2px);border-color:var(--border2);}
+.genre-card::before{content:'';position:absolute;inset:0;opacity:0.15;transition:opacity 0.15s;}
+.genre-card:hover::before{opacity:0.25;}
+.genre-card-name{font-family:var(--font-display);font-size:20px;letter-spacing:0.5px;color:#fff;position:relative;z-index:1;}
+.genre-card-count{font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;position:relative;z-index:1;}
+.genre-card.all-card{border-color:var(--gold);background:var(--gold-dim);}
+.genre-card.all-card .genre-card-name{color:var(--gold);}
+
+/* GENRE BEAT VIEW */
+.genre-view-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:0.5px solid var(--border);}
+.genre-back{background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text2);cursor:pointer;font-size:13px;font-family:var(--font-body);transition:all 0.15s;}
+.genre-back:hover{background:var(--bg3);color:#fff;}
+.genre-view-title{font-family:var(--font-display);font-size:28px;letter-spacing:1px;color:#fff;}
+.genre-view-count{font-size:12px;color:var(--text3);margin-top:2px;}
+
+@media(max-width:600px){
+  .genre-grid{grid-template-columns:repeat(2,1fr);}
+  .home-search-title{font-size:36px;}
+  .side-panel{width:260px;}
+}
 .page{display:none;}.page.active{display:block;}
 .hero{text-align:center;padding:60px 20px 40px;background:radial-gradient(ellipse 70% 50% at 50% 0%, rgba(240,165,0,0.08) 0%, transparent 70%);}
 .hero-title{font-family:var(--font-display);font-size:72px;letter-spacing:2px;line-height:1;color:#fff;}
@@ -235,60 +297,93 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
 
 <nav class="nav">
   <div class="logo" onclick="goHome()">1<span>DROPS</span><small>prod1todi</small></div>
-  <div class="nav-right" id="nav-right">
-    <button class="ntab active" onclick="showPage('home',event)">Home</button>
-    <button class="ntab" onclick="showPage('login',event)">Log in</button>
-    <button class="ntab" onclick="showPage('signup',event)">Sign up</button>
+  <div style="display:flex;align-items:center;gap:8px;" id="nav-right">
+    <div id="nav-auth-btns" style="display:flex;gap:4px;">
+      <button class="ntab" onclick="showPage('login')">Log in</button>
+      <button class="btn btn-gold btn-sm" onclick="showPage('signup')">Sign up</button>
+    </div>
+    <div class="hamburger" onclick="openSidePanel()" id="hamburger-btn">
+      <span></span><span></span><span></span>
+    </div>
   </div>
 </nav>
+
+<!-- SIDE PANEL -->
+<div class="side-overlay" id="side-overlay" onclick="closeSidePanel()"></div>
+<div class="side-panel" id="side-panel">
+  <div class="side-panel-header">
+    <div class="side-panel-logo">1<span>DROPS</span></div>
+    <button class="side-close" onclick="closeSidePanel()">×</button>
+  </div>
+  <nav class="side-nav" id="side-nav">
+    <button class="side-item" onclick="goHome();closeSidePanel();"><span class="side-item-icon">🏠</span>Home</button>
+    <button class="side-item" onclick="showPage('login');closeSidePanel();" id="sn-login" style="display:none;"><span class="side-item-icon">🔑</span>Log in</button>
+    <button class="side-item" onclick="showPage('signup');closeSidePanel();" id="sn-signup" style="display:none;"><span class="side-item-icon">✨</span>Sign up</button>
+    <button class="side-item" onclick="showPage('dashboard');closeSidePanel();" id="sn-dashboard" style="display:none;"><span class="side-item-icon">🎵</span>My Dashboard</button>
+    <button class="side-item" onclick="showPage('terms');closeSidePanel();"><span class="side-item-icon">📄</span>License Terms</button>
+    <div class="side-divider" id="sn-admin-div" style="display:none;"></div>
+    <button class="side-item" onclick="showPage('admin');closeSidePanel();" id="sn-admin" style="display:none;" style="color:var(--gold);"><span class="side-item-icon">🎛️</span>Admin Panel</button>
+  </nav>
+  <div class="side-user" id="side-user" style="display:none;">
+    <div class="side-user-name" id="side-user-name"></div>
+    <div class="side-user-plan" id="side-user-plan"></div>
+    <button class="side-item" onclick="doLogout();closeSidePanel();" style="padding:10px 0;margin-top:8px;"><span class="side-item-icon">👋</span>Log out</button>
+  </div>
+</div>
 
 <div class="content">
 
 <!-- HOME -->
 <div class="page active" id="page-home">
-  <!-- shown to logged-out visitors -->
-  <div id="home-guest">
-    <div class="hero">
-      <div class="hero-title">FRESH<br><span>BEATS</span><br>EVERY DROP</div>
-      <div class="hero-sub">Subscribe. Get notified. Download or request your sound.</div>
-      <div class="hero-btns">
-        <button class="btn btn-gold" onclick="showPage('signup')">Join free</button>
-        <button class="btn btn-outline" onclick="showPage('login')">Log in</button>
-      </div>
+  <!-- search + title -->
+  <div class="home-search-wrap">
+    <div class="home-search-title">FIND YOUR<br><span>SOUND</span></div>
+    <div class="home-search-sub" id="home-search-sub">Browse beats by genre or search by name</div>
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="home-search-input" placeholder="Search beats..." oninput="handleSearch(this.value)" />
+      <button class="search-clear" id="search-clear-btn" onclick="clearSearch()">×</button>
     </div>
   </div>
-  <!-- shown to logged-in users -->
-  <div id="home-loggedin" style="display:none;">
-    <div class="home-welcome">
-      <div class="home-welcome-top">
-        <div>
-          <div class="home-welcome-name">Hey, <span id="hw-name">—</span> 👋</div>
-          <div class="home-welcome-sub" id="hw-sub"></div>
-        </div>
-        <div id="hw-actions"></div>
+  <!-- upgrade / admin banners -->
+  <div id="hw-upgrade-banner" style="display:none;">
+    <div class="upgrade-banner" style="margin-bottom:20px;">
+      <div class="upgrade-banner-text">
+        <strong>Upgrade to Pro — $49/month</strong>
+        Every Basic license included. Custom beat requests. Full dashboard access.
       </div>
-      <div id="hw-upgrade-banner" style="display:none;">
-        <div class="upgrade-banner">
-          <div class="upgrade-banner-text">
-            <strong>Upgrade to Pro — $49/month</strong>
-            Every Basic license included. Custom beat requests. Full dashboard access. No per-beat fees.
-          </div>
-          <button class="btn btn-gold btn-sm" onclick="openUpgradeModal()">Upgrade now →</button>
-        </div>
-      </div>
-      <div id="hw-admin-banner" style="display:none;">
-        <div class="admin-banner">
-          <p>🎛️ You're logged in as admin. Upload beats and manage requests from the Admin panel.</p>
-          <button class="btn btn-outline btn-sm" onclick="showPage('admin')">Open admin →</button>
-        </div>
-      </div>
+      <button class="btn btn-gold btn-sm" onclick="openUpgradeModal()">Upgrade now →</button>
     </div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
-    <div class="section-title" style="margin-bottom:0;">Latest drops</div>
+  <div id="hw-admin-banner" style="display:none;">
+    <div class="admin-banner" style="margin-bottom:20px;">
+      <p>🎛️ Admin mode — upload beats and manage requests.</p>
+      <button class="btn btn-outline btn-sm" onclick="showPage('admin')">Open admin →</button>
+    </div>
   </div>
-  <div class="frow" id="home-genre-filters"></div>
-  <div id="home-beats"><p class="loading">Loading beats...</p></div>
+  <!-- genre grid -->
+  <div id="home-genre-grid"></div>
+  <!-- genre beat view (shown when a genre is selected) -->
+  <div id="home-genre-view" style="display:none;">
+    <div class="genre-view-header">
+      <button class="genre-back" onclick="showGenreGrid()">← Back</button>
+      <div>
+        <div class="genre-view-title" id="genre-view-title">All Beats</div>
+        <div class="genre-view-count" id="genre-view-count"></div>
+      </div>
+    </div>
+    <div id="home-beats"></div>
+  </div>
+  <!-- search results (shown during search) -->
+  <div id="home-search-results" style="display:none;">
+    <div class="genre-view-header">
+      <div>
+        <div class="genre-view-title">Search results</div>
+        <div class="genre-view-count" id="search-result-count"></div>
+      </div>
+    </div>
+    <div id="home-search-beats"></div>
+  </div>
 </div>
 
 <!-- BEAT PAGE (shared link) -->
@@ -732,7 +827,6 @@ let selectedPlan='free';
 let currentUser=null;
 let modalContext=null;
 let modalPayMethod='PayPal';
-let homeGenreFilter='all';
 let dashGenreFilter='all';
 
 // ════════════════════════════════════════════
@@ -810,39 +904,49 @@ async function doLogout(){
 
 function setLoggedInNav(){
   const isAdmin=currentUser&&currentUser.id===ADMIN_ID;
-  q('nav-right').innerHTML=`
-    <button class="ntab active" onclick="showPage('home',event)">Home</button>
-    <button class="ntab" onclick="showPage('dashboard',event)">My dashboard</button>
-    ${isAdmin?'<button class="ntab gold" onclick="showPage(\'admin\',event)">Admin</button>':''}
-    <button class="ntab" onclick="showPage('terms',event)" style="color:var(--text3);font-size:11px;">License terms</button>`;
+  const isPro=currentUser&&currentUser.plan==='paid';
+  // hide auth buttons, show side panel user info
+  q('nav-auth-btns').style.display='none';
+  q('sn-login').style.display='none';
+  q('sn-signup').style.display='none';
+  q('sn-dashboard').style.display='';
+  q('sn-admin').style.display=isAdmin?'':'none';
+  q('sn-admin-div').style.display=isAdmin?'':'none';
+  q('side-user').style.display='';
+  q('side-user-name').textContent=currentUser.name;
+  q('side-user-plan').textContent=isPro?'Pro member':'Free member';
 }
 
 function setLoggedOutNav(){
-  q('nav-right').innerHTML=`
-    <button class="ntab active" onclick="showPage('home',event)">Home</button>
-    <button class="ntab" onclick="showPage('login',event)">Log in</button>
-    <button class="ntab" onclick="showPage('signup',event)">Sign up</button>
-    <button class="ntab" onclick="showPage('terms',event)" style="color:var(--text3);font-size:11px;">License terms</button>`;
+  q('nav-auth-btns').style.display='';
+  q('sn-login').style.display='';
+  q('sn-signup').style.display='';
+  q('sn-dashboard').style.display='none';
+  q('sn-admin').style.display='none';
+  q('sn-admin-div').style.display='none';
+  q('side-user').style.display='none';
+}
+
+function openSidePanel(){
+  q('side-panel').classList.add('open');
+  q('side-overlay').classList.add('open');
+}
+function closeSidePanel(){
+  q('side-panel').classList.remove('open');
+  q('side-overlay').classList.remove('open');
 }
 
 // ════════════════════════════════════════════
 // PERSONALISED HOME
 // ════════════════════════════════════════════
 function renderLoggedInHome(){
-  if(!currentUser){
-    q('home-guest').style.display='';
-    q('home-loggedin').style.display='none';
-    return;
-  }
-  q('home-guest').style.display='none';
-  q('home-loggedin').style.display='';
-  const isAdmin=currentUser.id===ADMIN_ID;
-  const isPro=currentUser.plan==='paid';
-  q('hw-name').textContent=currentUser.name;
-  q('hw-sub').textContent=isPro?'Pro member — every Basic license is yours on every drop.'
-    :isAdmin?'Admin'
-    :'Free member — upgrade to Pro for unlimited Basic licenses and custom beat requests.';
-  q('hw-upgrade-banner').style.display=(!isPro&&!isAdmin)?'':'none';
+  const isAdmin=currentUser&&currentUser.id===ADMIN_ID;
+  const isPro=currentUser&&currentUser.plan==='paid';
+  const sub=currentUser
+    ?(isPro?'Pro member — every Basic license is yours on every drop.':isAdmin?'Admin — drop beats and manage requests.':'Free member')
+    :'Browse beats from Todi. Sign up to purchase and download.';
+  if(q('home-search-sub'))q('home-search-sub').textContent=sub;
+  q('hw-upgrade-banner').style.display=(currentUser&&!isPro&&!isAdmin)?'':'none';
   q('hw-admin-banner').style.display=isAdmin?'':'none';
 }
 
@@ -1205,13 +1309,6 @@ function buildGenreFilters(containerId, currentFilter, onSelect){
   });
 }
 
-function filterHomeGenre(g,btn){
-  homeGenreFilter=g;
-  document.querySelectorAll('#home-genre-filters .fb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderHomeBeatsList();
-}
-
 function filterDashGenre(g,btn){
   dashGenreFilter=g;
   document.querySelectorAll('#dash-genre-filters .fb').forEach(b=>b.classList.remove('active'));
@@ -1224,26 +1321,132 @@ function getFilteredBeats(filter){
   return beats.filter(b=>(b.genres||[]).includes(filter));
 }
 
-async function renderHomeBeats(){
-  await loadBeats();
-  buildGenreFilters('home-genre-filters', homeGenreFilter, 'filterHomeGenre');
-  renderHomeBeatsList();
+// Genre colour palette
+const GENRE_COLORS={
+  'Hip-Hop':  ['#1a0a2e','#6c3fc7'],
+  'Trap':     ['#0a1a0a','#2d7a2d'],
+  'R&B':      ['#1a0a10','#c73f6c'],
+  'Afrobeats':['#1a1000','#c7873f'],
+  'Drill':    ['#0a0a1a','#3f6cc7'],
+  'Lo-Fi':    ['#0d1a1a','#3fc7c7'],
+  'Pop':      ['#1a001a','#c73fc7'],
+  'Dancehall':['#1a0f00','#c7a03f'],
+  'Reggaeton':['#1a1500','#c7c03f'],
+  'Jazz':     ['#001a1a','#3fc7a0'],
+  'Soul':     ['#1a0000','#c74040'],
+  'Electronic':['#001520','#3fafc7'],
+};
+function getGenreColor(genre){
+  return GENRE_COLORS[genre]||['#111','#555'];
 }
 
-function renderHomeBeatsList(){
-  const el=q('home-beats');
-  const filtered=getFilteredBeats(homeGenreFilter);
-  if(!filtered.length){
-    el.innerHTML='<p class="empty">'+(homeGenreFilter==='all'?'No beats uploaded yet — check back soon.':'No beats in this genre yet.')+'</p>';
-    return;
-  }
-  el.innerHTML='';
-  filtered.forEach(function(b){
-    const card=document.createElement('div');
-    card.className='beat-card';
-    card.id='beat-card-'+b.id;
+async function renderHomeBeats(){
+  await loadBeats();
+  renderGenreGrid();
+}
 
-    // header
+function renderGenreGrid(){
+  const grid=q('home-genre-grid');
+  const view=q('home-genre-view');
+  const searchRes=q('home-search-results');
+  if(!grid)return;
+  grid.style.display='';
+  if(view)view.style.display='none';
+  if(searchRes)searchRes.style.display='none';
+
+  // build genre map
+  const genreMap={};
+  beats.forEach(function(b){
+    (b.genres||[]).forEach(function(g){
+      if(!genreMap[g])genreMap[g]=[];
+      genreMap[g].push(b);
+    });
+  });
+
+  const genres=Object.keys(genreMap).sort();
+  const total=beats.length;
+
+  grid.innerHTML='';
+  grid.className='genre-grid';
+
+  // All Beats card
+  const allCard=document.createElement('div');
+  allCard.className='genre-card all-card';
+  allCard.innerHTML='<div class="genre-card-name">All Beats</div><div class="genre-card-count">'+total+' beat'+(total!==1?'s':'')+'</div>';
+  allCard.addEventListener('click',function(){openGenreView('All Beats', beats);});
+  grid.appendChild(allCard);
+
+  // Genre cards
+  genres.forEach(function(g){
+    const bts=genreMap[g];
+    const colors=getGenreColor(g);
+    const card=document.createElement('div');
+    card.className='genre-card';
+    card.style.background='linear-gradient(135deg, '+colors[0]+' 0%, '+colors[1]+'44 100%)';
+    card.style.setProperty('--gc',colors[1]);
+    card.innerHTML='<div class="genre-card-name">'+g+'</div><div class="genre-card-count">'+bts.length+' beat'+(bts.length!==1?'s':'')+'</div>';
+    card.addEventListener('click',function(){openGenreView(g, bts);});
+    grid.appendChild(card);
+  });
+
+  if(!beats.length){
+    grid.innerHTML='<p class="empty">No beats uploaded yet — check back soon.</p>';
+  }
+}
+
+let currentGenreBeats=[];
+
+function openGenreView(genreName, beatList){
+  currentGenreBeats=beatList;
+  q('home-genre-grid').style.display='none';
+  q('home-search-results').style.display='none';
+  q('home-genre-view').style.display='';
+  q('genre-view-title').textContent=genreName;
+  q('genre-view-count').textContent=beatList.length+' beat'+(beatList.length!==1?'s':'');
+  renderBeatListInto(q('home-beats'), beatList);
+}
+
+function showGenreGrid(){
+  q('home-genre-view').style.display='none';
+  q('home-search-results').style.display='none';
+  q('home-genre-grid').style.display='';
+  q('home-search-input').value='';
+  q('search-clear-btn').classList.remove('show');
+}
+
+function handleSearch(val){
+  const clear=q('search-clear-btn');
+  if(val.trim()){
+    clear.classList.add('show');
+    const v=val.toLowerCase();
+    const results=beats.filter(function(b){
+      return b.title.toLowerCase().includes(v)||(b.genres||[]).some(g=>g.toLowerCase().includes(v));
+    });
+    q('home-genre-grid').style.display='none';
+    q('home-genre-view').style.display='none';
+    q('home-search-results').style.display='';
+    q('search-result-count').textContent=results.length+' result'+(results.length!==1?'s':'');
+    renderBeatListInto(q('home-search-beats'), results);
+  } else {
+    clearSearch();
+  }
+}
+
+function clearSearch(){
+  q('home-search-input').value='';
+  q('search-clear-btn').classList.remove('show');
+  q('home-search-results').style.display='none';
+  q('home-genre-view').style.display='none';
+  q('home-genre-grid').style.display='';
+}
+
+function renderBeatListInto(el, beatList){
+  if(!el)return;
+  if(!beatList.length){el.innerHTML='<p class="empty">No beats found.</p>';return;}
+  el.innerHTML='';
+  beatList.forEach(function(b){
+    const card=document.createElement('div');
+    card.className='beat-card';card.id='beat-card-'+b.id;
     const top=document.createElement('div');top.className='beat-top';
     const info=document.createElement('div');
     const titleEl=document.createElement('div');titleEl.className='beat-title';titleEl.textContent=b.title;
@@ -1253,26 +1456,20 @@ function renderHomeBeatsList(){
     if(b.description){
       const descEl=document.createElement('div');
       descEl.style.cssText='font-size:12px;color:var(--text3);margin-top:4px;line-height:1.5;';
-      descEl.textContent=b.description;
-      info.appendChild(descEl);
+      descEl.textContent=b.description;info.appendChild(descEl);
     }
     const shareBtn=document.createElement('button');
     shareBtn.className='btn-share';shareBtn.textContent='⬆ Share';
     shareBtn.addEventListener('click',function(e){e.stopPropagation();shareBeat(b.id,shareBtn);});
     top.appendChild(info);top.appendChild(shareBtn);
     card.appendChild(top);
-
-    // preview
     if(b.preview_path&&b.preview_url){
       const prev=document.createElement('div');prev.className='audio-preview';
       const lbl=document.createElement('span');lbl.className='audio-preview-label';lbl.textContent='🎧 Preview';
       const aud=document.createElement('audio');aud.controls=true;aud.preload='metadata';
       aud.crossOrigin='anonymous';aud.src=b.preview_url;
-      prev.appendChild(lbl);prev.appendChild(aud);
-      card.appendChild(prev);
+      prev.appendChild(lbl);prev.appendChild(aud);card.appendChild(prev);
     }
-
-    // note
     const note=document.createElement('div');
     note.style.cssText='margin-top:10px;font-size:12px;color:var(--text3);';
     if(currentUser){
@@ -1288,7 +1485,6 @@ function renderHomeBeatsList(){
     el.appendChild(card);
   });
 }
-
 
 async function loadUserRequests(){
   if(!currentUser)return;
