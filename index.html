@@ -27,6 +27,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://www.paypal.com/sdk/js?client-id=Ab4cI_Xp4GFxtq8S8WUTgTaCmgqb3ybZH2-kt9LSCsWbD0Wmn_zguoGaPd-80qr114YYzgOUWHwUf3T1&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
+<script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4.4.0/dist/browser-id3-writer.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -1910,10 +1911,8 @@ async function downloadBeat(beatId,licIndex,licName,btnEl){
   if(!currentUser)return;
   const beat=beats.find(b=>b.id===beatId);
   if(!beat||!beat.file_path){alert('No file available for this beat yet.');return;}
-  // log the download
   sb.from('downloads').insert({artist_id:currentUser.id,beat_id:beatId,beat_title:beat.title,lic_name:licName}).then();
 
-  // find the button that was clicked and show downloading state
   const btn=btnEl||(event&&event.currentTarget)||null;
   const originalText=btn?btn.textContent:'';
   if(btn){btn.textContent='Downloading...';btn.disabled=true;}
@@ -1924,11 +1923,34 @@ async function downloadBeat(beatId,licIndex,licName,btnEl){
     if(btn){btn.textContent=originalText;btn.disabled=false;}
     return;
   }
-  const ext=beat.file_path.split('.').pop()||'mp3';
-  const filename=beat.title+'.'+ext;
+  const ext=(beat.file_path.split('.').pop()||'mp3').toLowerCase();
+  const filename=beat.title+(beat.bpm?' ('+beat.bpm+'BPM)':'')+' [prod. 1todi].'+ext;
   try{
     const resp=await fetch(data.signedUrl);
-    const blob=await resp.blob();
+    const arrayBuffer=await resp.arrayBuffer();
+
+    let finalBuffer=arrayBuffer;
+    // embed ID3 tags for MP3 files
+    if(ext==='mp3'&&typeof ID3Writer!=='undefined'){
+      try{
+        const writer=new ID3Writer(arrayBuffer);
+        writer
+          .setFrame('TIT2', beat.title+(beat.bpm?' ('+beat.bpm+' BPM)':''))
+          .setFrame('TPE1', ['prod. 1todi'])
+          .setFrame('TALB', '1Drops — prod1todi.cfd')
+          .setFrame('TCOM', ['1todi'])
+          .setFrame('TCOP', 'prod. 1todi | 1Drops — prod1todi.cfd')
+          .setFrame('TBPM', beat.bpm?String(beat.bpm):'')
+          .setFrame('TPUB', '1Drops — prod1todi.cfd');
+        writer.addTag();
+        finalBuffer=writer.arrayBuffer;
+      }catch(tagErr){
+        console.warn('ID3 tagging failed, downloading without tags:', tagErr);
+        finalBuffer=arrayBuffer;
+      }
+    }
+
+    const blob=new Blob([finalBuffer],{type:'audio/'+ext});
     const blobUrl=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=blobUrl;a.download=filename;
