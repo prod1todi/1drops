@@ -88,6 +88,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .site-footer-brand{font-family:var(--font-display);font-size:18px;color:var(--text3);}
 .site-footer-brand span{color:var(--gold);}
 
+/* MINI PLAYER */
+.mini-player{position:fixed;bottom:0;left:0;right:0;background:rgba(12,12,12,0.97);border-top:0.5px solid var(--border);backdrop-filter:blur(20px);z-index:200;padding:10px 20px;display:none;align-items:center;gap:14px;}
+.mini-player.active{display:flex;}
+.mp-info{flex:1;min-width:0;}
+.mp-title{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mp-genre{font-size:11px;color:var(--text3);margin-top:1px;}
+.mp-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.mp-btn{background:none;border:none;color:var(--text2);cursor:pointer;padding:6px;border-radius:50%;transition:all 0.15s;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;}
+.mp-btn:hover{color:#fff;background:var(--bg3);}
+.mp-btn.mp-play{background:var(--gold);color:#000;width:36px;height:36px;font-size:16px;}
+.mp-btn.mp-play:hover{background:#e09500;}
+.mp-progress{flex:1;max-width:200px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.mp-bar{flex:1;height:3px;background:var(--bg3);border-radius:2px;cursor:pointer;position:relative;}
+.mp-bar-fill{height:100%;background:var(--gold);border-radius:2px;width:0%;transition:width 0.1s linear;}
+.mp-time{font-size:10px;color:var(--text3);white-space:nowrap;min-width:32px;}
+.mp-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;line-height:1;flex-shrink:0;}
+.mp-close:hover{color:#fff;}
+/* push footer up when player is active */
+body.player-active .site-footer{margin-bottom:70px;}
+body.player-active .content{padding-bottom:90px;}
+@media(max-width:600px){
+  .mp-progress{display:none;}
+  .mini-player{padding:10px 14px;gap:10px;}
+}
+
 /* SEARCH BAR */
 .home-search-wrap{padding:28px 0 20px;}
 .home-search-title{font-family:var(--font-display);font-size:48px;letter-spacing:1px;color:#fff;line-height:1;margin-bottom:6px;}
@@ -1639,14 +1664,16 @@ function renderGenreGrid(){
 
 let currentGenreBeats=[];
 
+let currentGroupName='';
+
 async function openGenreView(genreName, beatList){
   currentGenreBeats=beatList;
+  currentGroupName=genreName;
   q('home-genre-grid').style.display='none';
   q('home-search-results').style.display='none';
   q('home-genre-view').style.display='';
   q('genre-view-title').textContent=genreName;
   q('genre-view-count').textContent=beatList.length+' beat'+(beatList.length!==1?'s':'');
-  // ensure user requests loaded so payment/download buttons are accurate
   if(currentUser&&!licRequests.length)await loadUserRequests();
   renderBeatListInto(q('home-beats'), beatList);
 }
@@ -1713,10 +1740,22 @@ function renderBeatListInto(el, beatList){
     card.appendChild(top);
     if(b.preview_path&&b.preview_url){
       const prev=document.createElement('div');prev.className='audio-preview';
-      const lbl=document.createElement('span');lbl.className='audio-preview-label';lbl.textContent='🎧 Preview';
-      const aud=document.createElement('audio');aud.controls=true;aud.preload='metadata';
-      aud.crossOrigin='anonymous';aud.src=b.preview_url;
-      prev.appendChild(lbl);prev.appendChild(aud);card.appendChild(prev);
+      prev.style.cssText='display:flex;align-items:center;gap:10px;';
+      const playBtn=document.createElement('button');
+      playBtn.className='btn-beat btn-beat-free';
+      playBtn.style.cssText='flex-shrink:0;padding:7px 14px;';
+      playBtn.innerHTML='▶ Preview';
+      playBtn.addEventListener('click',function(){
+        // find index in current playlist
+        const idx=beatList.indexOf(b);
+        playerLoad(beatList,idx>=0?idx:0,currentGroupName||'Beats');
+        // update button state
+        playBtn.innerHTML='🎧 Playing';
+        miniAudio.addEventListener('pause',function(){playBtn.innerHTML='▶ Preview';},{once:true});
+        miniAudio.addEventListener('ended',function(){playBtn.innerHTML='▶ Preview';},{once:true});
+      });
+      prev.appendChild(playBtn);
+      card.appendChild(prev);
     }
     // action buttons
     const actionsEl=document.createElement('div');actionsEl.className='beat-actions';
@@ -2717,10 +2756,105 @@ window.addEventListener('load',clearSearchAutofill);
 
 // ── AUDIO MANAGER — stop all other players when one starts ──
 document.addEventListener('play', function(e){
+  const miniAudio=document.getElementById('mini-audio');
   document.querySelectorAll('audio').forEach(function(a){
-    if(a !== e.target) a.pause();
+    if(a !== e.target){
+      a.pause();
+      // if a beat card preview started, pause mini player too
+      if(e.target !== miniAudio && a === miniAudio) a.pause();
+    }
   });
+  // if a card preview plays, pause mini player
+  if(e.target !== miniAudio && miniAudio) miniAudio.pause();
 }, true);
+
+// ── MINI PLAYER ──
+let playerPlaylist=[];
+let playerIndex=0;
+let playerGroupName='';
+const miniAudio=document.getElementById('mini-audio');
+
+function formatTime(s){
+  if(isNaN(s))return '0:00';
+  const m=Math.floor(s/60),sec=Math.floor(s%60);
+  return m+':'+(sec<10?'0':'')+sec;
+}
+
+// wire up audio events
+if(miniAudio){
+  miniAudio.addEventListener('timeupdate',function(){
+    const fill=document.getElementById('mp-bar-fill');
+    const cur=document.getElementById('mp-current');
+    if(fill&&miniAudio.duration){fill.style.width=(miniAudio.currentTime/miniAudio.duration*100)+'%';}
+    if(cur)cur.textContent=formatTime(miniAudio.currentTime);
+  });
+  miniAudio.addEventListener('loadedmetadata',function(){
+    const dur=document.getElementById('mp-duration');
+    if(dur)dur.textContent=formatTime(miniAudio.duration);
+  });
+  miniAudio.addEventListener('ended',function(){
+    playerNext();
+  });
+  miniAudio.addEventListener('play',function(){
+    const btn=document.getElementById('mp-play-btn');
+    if(btn)btn.textContent='⏸';
+  });
+  miniAudio.addEventListener('pause',function(){
+    const btn=document.getElementById('mp-play-btn');
+    if(btn)btn.textContent='▶';
+  });
+}
+
+function playerLoad(playlist, index, groupName){
+  playerPlaylist=playlist;
+  playerIndex=index;
+  playerGroupName=groupName;
+  const beat=playlist[index];
+  if(!beat)return;
+  document.getElementById('mp-title').textContent=beat.title;
+  document.getElementById('mp-genre').textContent=groupName+(beat.bpm?' · '+beat.bpm+' BPM':'');
+  if(beat.preview_url){
+    // pause all card previews
+    document.querySelectorAll('audio:not(#mini-audio)').forEach(a=>a.pause());
+    miniAudio.src=beat.preview_url;
+    miniAudio.play().catch(()=>{});
+    document.getElementById('mini-player').classList.add('active');
+    document.body.classList.add('player-active');
+  }
+}
+
+function playerToggle(){
+  if(!miniAudio.src)return;
+  if(miniAudio.paused){miniAudio.play().catch(()=>{});}
+  else{miniAudio.pause();}
+}
+
+function playerPrev(){
+  if(!playerPlaylist.length)return;
+  playerIndex=(playerIndex-1+playerPlaylist.length)%playerPlaylist.length;
+  playerLoad(playerPlaylist,playerIndex,playerGroupName);
+}
+
+function playerNext(){
+  if(!playerPlaylist.length)return;
+  playerIndex=(playerIndex+1)%playerPlaylist.length;
+  playerLoad(playerPlaylist,playerIndex,playerGroupName);
+}
+
+function playerClose(){
+  miniAudio.pause();miniAudio.src='';
+  document.getElementById('mini-player').classList.remove('active');
+  document.body.classList.remove('player-active');
+  playerPlaylist=[];playerIndex=0;
+}
+
+function playerSeek(e){
+  const bar=document.getElementById('mp-bar');
+  if(!bar||!miniAudio.duration)return;
+  const rect=bar.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  miniAudio.currentTime=pct*miniAudio.duration;
+}
 
 
 // ════════════════════════════════════════════
@@ -2965,5 +3099,27 @@ function renderBeatPage(beatId){
   el.appendChild(footer);
 }
 </script>
+<!-- MINI PLAYER -->
+<div class="mini-player" id="mini-player">
+  <div class="mp-info">
+    <div class="mp-title" id="mp-title">—</div>
+    <div class="mp-genre" id="mp-genre"></div>
+  </div>
+  <div class="mp-controls">
+    <button class="mp-btn" id="mp-prev" onclick="playerPrev()" title="Previous">⏮</button>
+    <button class="mp-btn mp-play" id="mp-play-btn" onclick="playerToggle()" title="Play/Pause">▶</button>
+    <button class="mp-btn" id="mp-next" onclick="playerNext()" title="Next">⏭</button>
+  </div>
+  <div class="mp-progress">
+    <span class="mp-time" id="mp-current">0:00</span>
+    <div class="mp-bar" id="mp-bar" onclick="playerSeek(event)">
+      <div class="mp-bar-fill" id="mp-bar-fill"></div>
+    </div>
+    <span class="mp-time" id="mp-duration">0:00</span>
+  </div>
+  <button class="mp-close" onclick="playerClose()" title="Close">×</button>
+</div>
+<audio id="mini-audio" preload="metadata"></audio>
+
 </body>
 </html>
