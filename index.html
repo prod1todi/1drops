@@ -1807,12 +1807,15 @@ function renderBeatListInto(el, beatList){
     const card=document.createElement('div');
     card.className='beat-card';card.id='beat-card-'+b.id;
     // cover art as card background
-    const inner=document.createElement('div');inner.className='beat-card-inner';
+    // add cover bg first so it sits behind inner
     if(b.cover_url){
       const bg=document.createElement('div');
       bg.className='beat-card-bg';
       bg.style.backgroundImage='url('+JSON.stringify(b.cover_url)+')';
       card.appendChild(bg);
+    }
+    const inner=document.createElement('div');inner.className='beat-card-inner';
+    if(b.cover_url){
       inner.style.background='linear-gradient(to bottom,rgba(8,8,8,0.5) 0%,rgba(8,8,8,0.85) 60%,rgba(8,8,8,0.97) 100%)';
     }
     const top=document.createElement('div');top.className='beat-top';
