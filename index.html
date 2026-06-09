@@ -256,7 +256,7 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.5;}
 .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;}
 .mtag{padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg3);color:var(--text3);border:0.5px solid var(--border);}
 .beat-card{background:var(--bg3);border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;transition:border-color 0.15s;position:relative;}
-.beat-card-inner{padding:16px;background:linear-gradient(to bottom,rgba(8,8,8,0.0) 0%,rgba(8,8,8,0.6) 40%,rgba(8,8,8,0.92) 100%);border-radius:var(--radius-lg);}
+.beat-card-inner{padding:16px;background:linear-gradient(to bottom,transparent 0%,transparent 30%,rgba(8,8,8,0.75) 60%,rgba(8,8,8,0.95) 100%);border-radius:var(--radius-lg);}
 .mp-thumb{width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;}
 .mp-thumb-placeholder{width:40px;height:40px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
 .beat-card:hover{border-color:var(--border2);}
@@ -1832,8 +1832,8 @@ function renderBeatListInto(el, beatList){
       const prev=document.createElement('div');prev.className='audio-preview';
       prev.style.cssText='display:flex;align-items:center;gap:10px;';
       const playBtn=document.createElement('button');
-      playBtn.className='btn-beat btn-beat-free';
-      playBtn.style.cssText='flex-shrink:0;padding:7px 14px;';
+      playBtn.className='btn-share';
+      playBtn.style.cssText='flex-shrink:0;';
       playBtn.innerHTML='▶ Preview';
       playBtn.addEventListener('click',function(){
         // find index in current playlist
