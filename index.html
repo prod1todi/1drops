@@ -3387,10 +3387,10 @@ function renderBeatPage(beatId){
   <div style="width:100%;max-width:480px;margin:0 auto;padding:24px 20px;display:flex;flex-direction:column;height:100%;justify-content:center;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;">
       <div style="font-size:12px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;" id="np-group"></div>
-      <button onclick="closeNowPlaying()" style="background:none;border:none;color:var(--text3);font-size:24px;cursor:pointer;line-height:1;">⌄</button>
+      <button onclick="closeNowPlaying()" style="background:var(--bg3);border:0.5px solid var(--border);color:var(--text2);font-size:14px;cursor:pointer;line-height:1;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.background='var(--border2)';this.style.color='#fff'" onmouseout="this.style.background='var(--bg3)';this.style.color='var(--text2)'">✕</button>
     </div>
     <!-- beat art placeholder -->
-    <div id="np-art" style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#181818,#272727);border-radius:16px;margin-bottom:28px;display:flex;align-items:center;justify-content:center;font-size:80px;">🎵</div>
+    <div id="np-art" style="width:100%;max-height:260px;aspect-ratio:1;background:linear-gradient(135deg,#181818,#272727);border-radius:16px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;font-size:80px;overflow:hidden;">🎵</div>
     <!-- beat info -->
     <div style="margin-bottom:24px;">
       <div id="np-title" style="font-family:var(--font-display);font-size:32px;color:#fff;letter-spacing:1px;"></div>
